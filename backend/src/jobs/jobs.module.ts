@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { JobsService } from './jobs.service';
 import { JobsController } from './jobs.controller';
+import { TechnicianJobsController } from './technician-jobs.controller';
 import { Job, JobSchema } from './schemas/job.schema';
 import { UsersModule } from '../users/users.module';
 
@@ -14,7 +15,7 @@ import { UsersModule } from '../users/users.module';
     JwtModule,
     ConfigModule,
   ],
-  controllers: [JobsController],
+  controllers: [TechnicianJobsController, JobsController],
   providers: [JobsService],
   exports: [JobsService],
 })
