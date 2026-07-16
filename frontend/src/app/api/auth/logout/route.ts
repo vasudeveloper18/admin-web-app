@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { clearAuthCookies, getAccessToken } from '@/lib/auth-cookies';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '@/lib/branding';
 
 export async function POST(_request: NextRequest) {
   const accessToken = await getAccessToken();

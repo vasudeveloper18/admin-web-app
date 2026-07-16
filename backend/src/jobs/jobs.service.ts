@@ -133,12 +133,10 @@ export class JobsService {
       throw new NotFoundException(`Job with ID ${id} not found`);
     }
 
-    // Ensure status is valid for assignment
-    if (job.status === JobStatus.COMPLETED) {
-      throw new UnprocessableEntityException('Cannot assign a completed job');
-    }
-    if (job.status === JobStatus.CANCELLED) {
-      throw new UnprocessableEntityException('Cannot assign a cancelled job');
+    if (job.status !== JobStatus.PENDING) {
+      throw new UnprocessableEntityException(
+        `Cannot assign technician when job status is ${job.status}. Only PENDING jobs can be assigned.`,
+      );
     }
 
     job.assignedTechnician = new Types.ObjectId(technicianId) as any;
@@ -158,12 +156,10 @@ export class JobsService {
       throw new NotFoundException(`Job with ID ${id} not found`);
     }
 
-    // Ensure status is valid for unassignment
-    if (job.status === JobStatus.COMPLETED) {
-      throw new UnprocessableEntityException('Cannot unassign a completed job');
-    }
-    if (job.status === JobStatus.CANCELLED) {
-      throw new UnprocessableEntityException('Cannot unassign a cancelled job');
+    if (job.status !== JobStatus.ASSIGNED) {
+      throw new UnprocessableEntityException(
+        `Cannot unassign technician when job status is ${job.status}. Only ASSIGNED jobs can be unassigned.`,
+      );
     }
 
     job.assignedTechnician = null;
@@ -186,9 +182,13 @@ export class JobsService {
     if (job.status === JobStatus.COMPLETED) {
       throw new UnprocessableEntityException('Cannot cancel a completed job');
     }
+    if (job.status === JobStatus.CANCELLED) {
+      throw new UnprocessableEntityException('Job is already cancelled');
+    }
 
     job.status = JobStatus.CANCELLED;
     job.cancelReason = reason;
+    job.cancelledAt = new Date();
 
     const savedJob = await job.save();
     return this.findById(savedJob.id);

@@ -43,6 +43,7 @@ export interface Job {
   scheduledDate: string;
   completedDate?: string | null;
   cancelReason?: string;
+  cancelledAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

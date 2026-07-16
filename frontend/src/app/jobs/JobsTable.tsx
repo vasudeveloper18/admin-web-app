@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Search, SlidersHorizontal, PlusCircle, ChevronUp, ChevronDown,
-  ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, AlertCircle,
+  PlusCircle, ChevronUp, ChevronDown,
+  ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight,
   Calendar, MapPin, ArrowUpDown,
 } from 'lucide-react';
-import { jobsApi, usersApi } from '@/lib/api';
-import { Job, JobStatus, JobsQueryParams, PaginatedJobs, User } from '@/types';
+import { usersApi } from '@/lib/api';
+import { Job, JobStatus, PaginatedJobs, User } from '@/types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { PageLoader } from '@/components/ui/Spinner';
+import { DateRangeFilter } from '@/components/ui/DateRangeFilter';
+import { AdminPageCard } from '@/components/layout/AdminPageCard';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
@@ -23,12 +24,13 @@ const STATUS_OPTIONS = [
 ];
 
 interface JobsTableProps {
-  initialData?: PaginatedJobs;
+  initialData: PaginatedJobs;
 }
 
 export function JobsTable({ initialData }: JobsTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   const page = Number(searchParams.get('page') || '1');
   const limit = Number(searchParams.get('limit') || '10');
@@ -40,13 +42,19 @@ export function JobsTable({ initialData }: JobsTableProps) {
   const sortBy = searchParams.get('sortBy') || 'scheduledDate';
   const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
 
-  const [jobs, setJobs] = useState<Job[]>(initialData?.jobs ?? []);
-  const [total, setTotal] = useState(initialData?.total ?? 0);
-  const [pages, setPages] = useState(initialData?.pages ?? 1);
+  const [jobs, setJobs] = useState<Job[]>(initialData.jobs);
+  const [total, setTotal] = useState(initialData.total);
+  const [pages, setPages] = useState(initialData.pages);
   const [technicians, setTechnicians] = useState<User[]>([]);
-  const [loading, setLoading] = useState(!initialData);
-  const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(search);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const skipSearchDebounce = useRef(false);
+
+  useEffect(() => {
+    setJobs(initialData.jobs);
+    setTotal(initialData.total);
+    setPages(initialData.pages);
+  }, [initialData]);
 
   useEffect(() => {
     usersApi.getTechnicians().then((res) => {
@@ -55,91 +63,73 @@ export function JobsTable({ initialData }: JobsTableProps) {
   }, []);
 
   useEffect(() => {
-    if (initialData) {
-      setJobs(initialData.jobs);
-      setTotal(initialData.total);
-      setPages(initialData.pages);
-      setLoading(false);
-      setError(null);
+    if (skipSearchDebounce.current) {
+      skipSearchDebounce.current = false;
+      return;
     }
-  }, [initialData]);
-
-  const fetchJobs = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params: JobsQueryParams = {
-        page, limit, sortBy, sortOrder,
-        ...(status && { status }),
-        ...(technician && { technician }),
-        ...(startDate && { startDate: `${startDate}T00:00:00.000Z` }),
-        ...(endDate && { endDate: `${endDate}T23:59:59.999Z` }),
-        ...(search && { search }),
-      };
-      const res = await jobsApi.getJobs(params);
-      if (res.success) {
-        setJobs(res.data.jobs);
-        setTotal(res.data.total);
-        setPages(res.data.pages);
-      }
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      setError(axiosErr?.response?.data?.message || 'Failed to fetch jobs. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, limit, status, technician, startDate, endDate, search, sortBy, sortOrder]);
-
-  useEffect(() => {
-    if (!initialData) {
-      fetchJobs();
-    }
-  }, [initialData, fetchJobs]);
-
-  useEffect(() => {
     if (searchInput === search) return;
 
     const timer = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (searchInput.trim() === '') {
-        params.delete('search');
-      } else {
-        params.set('search', searchInput.trim());
-      }
-      params.set('page', '1');
-      router.push(`/jobs?${params.toString()}`);
+      navigateWithParams((params) => {
+        if (searchInput.trim() === '') {
+          params.delete('search');
+        } else {
+          params.set('search', searchInput.trim());
+        }
+        params.set('page', '1');
+      });
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
-  const updateParam = (key: string, value: string) => {
+  const navigateWithParams = (mutate: (params: URLSearchParams) => void) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value === '') {
-      params.delete(key);
-    } else {
-      params.set(key, value);
-    }
-    if (key !== 'page') params.set('page', '1');
-    router.push(`/jobs?${params.toString()}`);
+    mutate(params);
+    startTransition(() => {
+      router.push(`/jobs?${params.toString()}`);
+    });
+  };
+
+  const updateParam = (key: string, value: string) => {
+    navigateWithParams((params) => {
+      if (value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+      if (key !== 'page') params.set('page', '1');
+    });
+  };
+
+  const updateDateRange = (start: string, end: string) => {
+    navigateWithParams((params) => {
+      if (start) params.set('startDate', start);
+      else params.delete('startDate');
+      if (end) params.set('endDate', end);
+      else params.delete('endDate');
+      params.set('page', '1');
+    });
   };
 
   const toggleSort = (field: string) => {
     if (sortBy === field) {
       updateParam('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('sortBy', field);
-      params.set('sortOrder', 'desc');
-      params.set('page', '1');
-      router.push(`/jobs?${params.toString()}`);
+      navigateWithParams((params) => {
+        params.set('sortBy', field);
+        params.set('sortOrder', 'desc');
+        params.set('page', '1');
+      });
     }
   };
 
-  const goToPage = (p: number) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('page', String(p));
-    router.push(`/jobs?${params.toString()}`);
+  const goToPage = (p: number) => updateParam('page', String(p));
+
+  const clearFilters = () => {
+    skipSearchDebounce.current = true;
+    setSearchInput('');
+    startTransition(() => router.push('/jobs'));
   };
 
   const formatDate = (dateStr: string) =>
@@ -148,235 +138,232 @@ export function JobsTable({ initialData }: JobsTableProps) {
     });
 
   const SortIcon = ({ field }: { field: string }) => {
-    if (sortBy !== field) return <ArrowUpDown size={13} style={{ opacity: 0.35 }} />;
+    if (sortBy !== field) return <ArrowUpDown size={13} className="sort-icon--inactive" />;
     return sortOrder === 'asc'
-      ? <ChevronUp size={13} style={{ color: '#6366f1' }} />
-      : <ChevronDown size={13} style={{ color: '#6366f1' }} />;
+      ? <ChevronUp size={13} className="sort-icon--active" />
+      : <ChevronDown size={13} className="sort-icon--active" />;
   };
 
-  const hasFilters = status || technician || startDate || endDate || search;
+  const hasAdvancedFilters = status || technician || startDate || endDate;
+  const hasFilters = hasAdvancedFilters || search;
+  const showingFrom = total === 0 ? 0 : (page - 1) * limit + 1;
+  const showingTo = Math.min(page * limit, total);
+
+  useEffect(() => {
+    if (hasAdvancedFilters) setFiltersOpen(true);
+  }, [hasAdvancedFilters]);
 
   return (
-    <div style={{ padding: '32px', minHeight: '100vh', background: '#0f1117' }} className="animate-fadeIn">
-      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#f0f2f8', marginBottom: 4 }}>Jobs</h1>
-            <p style={{ fontSize: 13, color: '#8b92a9' }}>
-              {total > 0 ? `${total} total job${total !== 1 ? 's' : ''}` : 'No jobs found'}
-            </p>
-          </div>
-          <Link
-            href="/jobs/new"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-              color: 'white', textDecoration: 'none',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              boxShadow: '0 4px 12px rgba(99,102,241,0.35)',
-            }}
-          >
-            <PlusCircle size={16} />
-            New Job
-          </Link>
-        </div>
-
-        <div style={{
-          background: '#1a1d27', border: '1px solid rgba(255,255,255,0.06)',
-          borderRadius: 14, padding: '16px 20px', marginBottom: 20,
-          display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap',
-        }}>
-          <div style={{ position: 'relative', minWidth: 220, flex: '1 1 220px' }}>
-            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#8b92a9', pointerEvents: 'none' }} />
-            <input
-              type="text"
-              placeholder="Search jobs, customers…"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              style={{
-                width: '100%', padding: '9px 12px 9px 36px', borderRadius: 9,
-                background: 'rgba(15,17,23,0.8)', border: '1px solid rgba(255,255,255,0.08)',
-                color: '#f0f2f8', fontSize: 13, outline: 'none',
-              }}
-            />
-          </div>
-          <select value={status} onChange={(e) => updateParam('status', e.target.value)} style={{ ...selectStyle, minWidth: 150 }}>
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          <select value={technician} onChange={(e) => updateParam('technician', e.target.value)} style={{ ...selectStyle, minWidth: 160 }}>
-            <option value="">All Technicians</option>
-            <option value="unassigned">Unassigned</option>
-            {technicians.map((t) => (
-              <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>
-            ))}
-          </select>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => updateParam('startDate', e.target.value)}
-            title="Start date"
-            style={{ ...selectStyle, minWidth: 150 }}
-          />
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => updateParam('endDate', e.target.value)}
-            title="End date"
-            style={{ ...selectStyle, minWidth: 150 }}
-          />
-          {hasFilters && (
-            <button
-              onClick={() => {
-                setSearchInput('');
-                router.push('/jobs');
-              }}
-              style={{
-                padding: '9px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap',
-                color: '#f87171', background: 'rgba(239,68,68,0.08)',
-                border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer',
-              }}
-            >
-              Clear
-            </button>
-          )}
-        </div>
-
-        <div style={{
-          background: '#1a1d27', border: '1px solid rgba(255,255,255,0.06)',
-          borderRadius: 14, overflow: 'hidden',
-        }}>
-          {loading ? (
-            <PageLoader />
-          ) : error ? (
-            <div style={{ padding: 40, textAlign: 'center' }}>
-              <AlertCircle size={36} color="#ef4444" style={{ marginBottom: 12 }} />
-              <p style={{ color: '#f87171', fontSize: 14 }}>{error}</p>
-              <button onClick={fetchJobs} style={{ marginTop: 12, padding: '8px 16px', borderRadius: 8, background: '#6366f1', color: 'white', border: 'none', cursor: 'pointer', fontSize: 13 }}>
-                Retry
+    <div className="page-container animate-fadeIn">
+      <div className="page-inner page-inner--full">
+        <AdminPageCard
+          title={`All Jobs (${total})`}
+          loading={isPending}
+          actions={
+            <>
+              <Link href="/jobs/new" className="admin-page-card__btn admin-page-card__btn--primary">
+                <PlusCircle size={15} />
+                New Job
+              </Link>
+              <button
+                type="button"
+                className={`admin-page-card__btn admin-page-card__btn--primary${filtersOpen ? ' admin-page-card__btn--active' : ''}`}
+                onClick={() => setFiltersOpen((open) => !open)}
+                aria-expanded={filtersOpen}
+              >
+                Advanced Search
+                <ChevronDown size={15} className={`admin-page-card__btn-chevron${filtersOpen ? ' admin-page-card__btn-chevron--open' : ''}`} />
               </button>
+            </>
+          }
+        >
+          {isPending && (
+            <div className="data-table-overlay">
+              <span className="data-table-spinner" />
+              <span>Updating results…</span>
             </div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(15,17,23,0.4)' }}>
-                    {[
-                      { key: 'title', label: 'Job' },
-                      { key: 'status', label: 'Status' },
-                      { key: null, label: 'Customer' },
-                      { key: null, label: 'Technician' },
-                      { key: 'scheduledDate', label: 'Scheduled' },
-                      { key: null, label: 'Location' },
-                    ].map(({ key, label }) => (
-                      <th
-                        key={label}
-                        onClick={() => key && toggleSort(key)}
-                        style={{
-                          padding: '12px 16px', textAlign: 'left',
-                          fontSize: 11, fontWeight: 700, color: '#4b5280',
-                          letterSpacing: '0.08em', textTransform: 'uppercase',
-                          cursor: key ? 'pointer' : 'default',
-                          userSelect: 'none', whiteSpace: 'nowrap',
-                        }}
-                      >
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                          {label}
-                          {key && <SortIcon field={key} />}
-                        </span>
-                      </th>
+          )}
+
+          {filtersOpen && (
+            <div className="jobs-list-card__filters">
+              <div className="jobs-list-card__filters-grid">
+                <DateRangeFilter
+                  startDate={startDate}
+                  endDate={endDate}
+                  onChange={updateDateRange}
+                />
+
+                <div className="filter-group">
+                  <label className="filter-label">Status</label>
+                  <select
+                    value={status}
+                    onChange={(e) => updateParam('status', e.target.value)}
+                    className="filter-input filter-select"
+                  >
+                    {STATUS_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <label className="filter-label">Technician</label>
+                  <select
+                    value={technician}
+                    onChange={(e) => updateParam('technician', e.target.value)}
+                    className="filter-input filter-select"
+                  >
+                    <option value="">All Technicians</option>
+                    <option value="unassigned">Unassigned</option>
+                    {technicians.map((t) => (
+                      <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {hasAdvancedFilters && (
+                <div className="jobs-list-card__filters-footer">
+                  <button type="button" onClick={clearFilters} className="jobs-list-card__btn-clear">
+                    Clear all
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="jobs-list-card__toolbar">
+            <div className="jobs-list-card__toolbar-left">
+              <span className="jobs-list-card__toolbar-label">Show</span>
+              <select
+                value={String(limit)}
+                onChange={(e) => updateParam('limit', e.target.value)}
+                className="jobs-list-card__toolbar-select"
+              >
+                {[10, 25, 50].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+              <span className="jobs-list-card__toolbar-label">entries</span>
+            </div>
+
+            <div className="jobs-list-card__toolbar-right">
+              <span className="jobs-list-card__toolbar-label">Search:</span>
+              <div className="jobs-list-card__search-wrap">
+                <input
+                  type="text"
+                  placeholder="Search jobs, customers…"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="jobs-list-card__search-input"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="data-table-scroll">
+            <table className="data-table data-table--listing">
+              <thead>
+                <tr>
+                  {[
+                    { key: 'title', label: 'Job' },
+                    { key: 'status', label: 'Status' },
+                    { key: null, label: 'Customer' },
+                    { key: null, label: 'Technician' },
+                    { key: 'scheduledDate', label: 'Scheduled' },
+                    { key: null, label: 'Location' },
+                  ].map(({ key, label }) => (
+                    <th
+                      key={label}
+                      onClick={() => key && toggleSort(key)}
+                      className={key ? 'data-table__th--sortable' : undefined}
+                    >
+                      <span className="data-table__th-content">
+                        {label}
+                        {key && <SortIcon field={key} />}
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="data-table__empty">
+                        <p className="data-table__empty-title">No records found</p>
+                        {hasFilters && (
+                          <button type="button" onClick={clearFilters} className="btn-link">
+                            Clear filters
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {jobs.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} style={{ padding: 60, textAlign: 'center' }}>
-                        <SlidersHorizontal size={36} color="#4b5280" style={{ marginBottom: 12, display: 'inline-block' }} />
-                        <p style={{ color: '#8b92a9', fontSize: 14, margin: 0 }}>No records found</p>
+                ) : (
+                  jobs.map((job) => (
+                    <tr
+                      key={job.id}
+                      className="data-table__row"
+                      onClick={() => router.push(`/jobs/${job.id}`)}
+                    >
+                      <td className="data-table__cell data-table__cell--title">
+                        <div className="data-table__title">{job.title}</div>
+                        {job.description && (
+                          <div className="data-table__subtitle">{job.description}</div>
+                        )}
                       </td>
-                    </tr>
-                  ) : (
-                    jobs.map((job, i) => (
-                      <tr
-                        key={job.id}
-                        style={{
-                          borderBottom: i < jobs.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                          cursor: 'pointer',
-                        }}
-                        onClick={() => router.push(`/jobs/${job.id}`)}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(99,102,241,0.04)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <td style={{ padding: '14px 16px', maxWidth: 240 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e5f0', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {job.title}
-                          </div>
-                          {job.description && (
-                            <div style={{ fontSize: 11, color: '#8b92a9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {job.description}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                          <StatusBadge status={job.status} size="sm" />
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <div style={{ fontSize: 13, color: '#c5cae0', fontWeight: 500 }}>{job.customerName}</div>
-                          <div style={{ fontSize: 11, color: '#8b92a9', marginTop: 2 }}>{job.customerEmail}</div>
-                        </td>
-                        <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                          {job.assignedTechnician ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                              <div style={{
-                                width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 10, fontWeight: 700, color: 'white',
-                              }}>
-                                {(job.assignedTechnician as User).firstName[0]}
-                                {(job.assignedTechnician as User).lastName[0]}
-                              </div>
-                              <div style={{ fontSize: 12, color: '#c5cae0', fontWeight: 500 }}>
-                                {(job.assignedTechnician as User).firstName} {(job.assignedTechnician as User).lastName}
-                              </div>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: 12, color: '#4b5280', fontStyle: 'italic' }}>Unassigned</span>
-                          )}
-                        </td>
-                        <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Calendar size={13} color="#8b92a9" />
-                            <span style={{ fontSize: 13, color: '#c5cae0' }}>{formatDate(job.scheduledDate)}</span>
-                          </div>
-                        </td>
-                        <td style={{ padding: '14px 16px', maxWidth: 180 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <MapPin size={13} color="#8b92a9" style={{ flexShrink: 0 }} />
-                            <span style={{ fontSize: 12, color: '#8b92a9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {job.address}
+                      <td className="data-table__cell">
+                        <StatusBadge status={job.status} size="sm" />
+                      </td>
+                      <td className="data-table__cell">
+                        <div className="data-table__primary">{job.customerName}</div>
+                        <div className="data-table__secondary">{job.customerEmail}</div>
+                      </td>
+                      <td className="data-table__cell">
+                        {job.assignedTechnician ? (
+                          <div className="data-table__tech">
+                            <span className="data-table__tech-avatar">
+                              {(job.assignedTechnician as User).firstName[0]}
+                              {(job.assignedTechnician as User).lastName[0]}
+                            </span>
+                            <span className="data-table__primary">
+                              {(job.assignedTechnician as User).firstName}{' '}
+                              {(job.assignedTechnician as User).lastName}
                             </span>
                           </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                        ) : (
+                          <span className="data-table__unassigned">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="data-table__cell">
+                        <div className="data-table__date">
+                          <Calendar size={13} />
+                          {formatDate(job.scheduledDate)}
+                        </div>
+                      </td>
+                      <td className="data-table__cell data-table__cell--location">
+                        <div className="data-table__location">
+                          <MapPin size={13} />
+                          <span>{job.address}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-          {!loading && !error && pages > 1 && (
-            <div style={{
-              padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.06)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
-            }}>
-              <div style={{ fontSize: 12, color: '#8b92a9' }}>
-                Page {page} of {pages} · {total} total
-              </div>
-              <div style={{ display: 'flex', gap: 6 }}>
+          <div className="jobs-list-card__footer">
+            <span className="jobs-list-card__footer-info">
+              {total > 0
+                ? `Showing ${showingFrom}–${showingTo} of ${total} entries`
+                : 'No matching jobs'}
+            </span>
+
+            {pages > 1 && (
+              <div className="data-table-pagination__controls">
                 {[
                   { icon: ChevronsLeft, action: () => goToPage(1), disabled: page === 1, label: 'First' },
                   { icon: ChevronLeft, action: () => goToPage(page - 1), disabled: page === 1, label: 'Prev' },
@@ -385,37 +372,20 @@ export function JobsTable({ initialData }: JobsTableProps) {
                 ].map(({ icon: Icon, action, disabled, label }) => (
                   <button
                     key={label}
+                    type="button"
                     onClick={action}
-                    disabled={disabled}
+                    disabled={disabled || isPending}
                     aria-label={label}
-                    style={{
-                      width: 36, height: 36, borderRadius: 8,
-                      background: disabled ? 'rgba(75,82,128,0.2)' : 'rgba(99,102,241,0.12)',
-                      border: '1px solid rgba(99,102,241,0.3)',
-                      color: disabled ? '#4b5280' : '#a5b4fc',
-                      cursor: disabled ? 'not-allowed' : 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-                    }}
+                    className="pagination-btn"
                   >
                     <Icon size={16} />
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </AdminPageCard>
       </div>
     </div>
   );
 }
-
-const selectStyle: React.CSSProperties = {
-  padding: '9px 12px',
-  borderRadius: 9,
-  background: 'rgba(15,17,23,0.8)',
-  border: '1px solid rgba(255,255,255,0.08)',
-  color: '#c5cae0',
-  fontSize: 13,
-  outline: 'none',
-  cursor: 'pointer',
-};

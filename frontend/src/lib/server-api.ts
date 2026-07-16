@@ -14,7 +14,7 @@ import {
 
 
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '@/lib/branding';
 
 
 
@@ -219,6 +219,88 @@ export async function fetchJob(id: string): Promise<Job> {
 export async function fetchMe() {
 
   const res = await serverFetch<ApiResponse<import('@/types').User>>('/me');
+
+  return res.data;
+
+}
+
+
+
+export async function createJob(data: {
+
+  title: string;
+
+  description?: string;
+
+  customerName: string;
+
+  customerPhone: string;
+
+  customerEmail: string;
+
+  address: string;
+
+  latitude: number;
+
+  longitude: number;
+
+  scheduledDate: string;
+
+}): Promise<Job> {
+
+  const res = await serverFetch<ApiResponse<Job>>('/jobs', {
+
+    method: 'POST',
+
+    body: JSON.stringify(data),
+
+  });
+
+  return res.data;
+
+}
+
+
+
+export async function assignTechnician(jobId: string, technicianId: string): Promise<Job> {
+
+  const res = await serverFetch<ApiResponse<Job>>(`/jobs/${jobId}/assign`, {
+
+    method: 'PATCH',
+
+    body: JSON.stringify({ technicianId }),
+
+  });
+
+  return res.data;
+
+}
+
+
+
+export async function unassignTechnician(jobId: string): Promise<Job> {
+
+  const res = await serverFetch<ApiResponse<Job>>(`/jobs/${jobId}/unassign`, {
+
+    method: 'PATCH',
+
+  });
+
+  return res.data;
+
+}
+
+
+
+export async function cancelJob(jobId: string, reason: string): Promise<Job> {
+
+  const res = await serverFetch<ApiResponse<Job>>(`/jobs/${jobId}/cancel`, {
+
+    method: 'PATCH',
+
+    body: JSON.stringify({ reason }),
+
+  });
 
   return res.data;
 

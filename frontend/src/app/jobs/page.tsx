@@ -24,6 +24,8 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   const sortBy = (params.sortBy || 'scheduledDate') as string;
   const sortOrder = (params.sortOrder || 'desc') as 'asc' | 'desc';
 
+  const filterKey = [page, limit, status, technician, startDate, endDate, search, sortBy, sortOrder].join('|');
+
   const initialData = await fetchJobs({
     page,
     limit,
@@ -36,5 +38,5 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     ...(search && { search }),
   });
 
-  return <JobsTable initialData={initialData} />;
+  return <JobsTable key={filterKey} initialData={initialData} />;
 }

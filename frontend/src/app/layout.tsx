@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { BRAND } from '@/lib/branding';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -10,10 +11,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Admin Web App',
-    template: '%s | Admin Web App',
+    default: BRAND.browserTitle,
+    template: `%s | ${BRAND.browserTitle}`,
   },
-  description: 'Admin Web App — manage service jobs, assign technicians, and track field operations.',
+  description: `${BRAND.applicationName} — manage service jobs, assign technicians, and track field operations.`,
   robots: { index: false, follow: false },
 };
 

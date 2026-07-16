@@ -158,6 +158,7 @@ async function seed() {
     let completionNotes = undefined;
     let completionPhotos: string[] = [];
     let cancelReason = undefined;
+    let cancelledAt = null;
 
     // Set properties based on status
     if (status !== JobStatus.PENDING) {
@@ -182,6 +183,8 @@ async function seed() {
 
     if (status === JobStatus.CANCELLED) {
       cancelReason = 'Customer requested cancellation due to scheduling conflicts or emergency cancellation.';
+      cancelledAt = new Date(scheduledDate);
+      cancelledAt.setDate(cancelledAt.getDate() + 1);
     }
 
     jobsToCreate.push({
@@ -204,6 +207,7 @@ async function seed() {
       scheduledDate,
       completedDate,
       cancelReason,
+      cancelledAt,
     });
   }
 

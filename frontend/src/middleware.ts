@@ -6,7 +6,7 @@ import {
   authCookieOptions,
 } from '@/lib/auth-cookie-config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '@/lib/branding';
 
 const PUBLIC_API_PREFIXES = ['/api/auth/login', '/api/auth/refresh'];
 
@@ -33,26 +33,52 @@ function setAuthCookiesOnResponse(
 }
 
 async function refreshTokens(refreshToken: string) {
-  const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
 
-  if (!res.ok) return null;
+    if (!res.ok) return null;
 
-  const data = await res.json();
-  return {
-    accessToken: data.data.accessToken as string,
-    refreshToken: data.data.refreshToken as string,
-  };
+    const data = await res.json();
+    return {
+      accessToken: data.data.accessToken as string,
+      refreshToken: data.data.refreshToken as string,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function verifyAccessToken(accessToken: string) {
-  const res = await fetch(`${API_BASE_URL}/me`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  try {
+    const res = await fetch(`${API_BASE_URL}/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function buildAuthenticatedResponse(
+  request: NextRequest,
+  auth: { accessToken: string; refreshed: false } | { accessToken: string; refreshed: true; tokens: { accessToken: string; refreshToken: string } }
+) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-access-token', auth.accessToken);
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
   });
-  return res.ok;
+
+  if (auth.refreshed) {
+    setAuthCookiesOnResponse(response, auth.tokens.accessToken, auth.tokens.refreshToken);
+  }
+
+  return response;
 }
 
 async function authenticateRequest(request: NextRequest) {
@@ -109,11 +135,7 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    const response = NextResponse.next();
-    if (auth.refreshed) {
-      setAuthCookiesOnResponse(response, auth.tokens.accessToken, auth.tokens.refreshToken);
-    }
-    return response;
+    return buildAuthenticatedResponse(request, auth);
   }
 
   const auth = await authenticateRequest(request);
@@ -121,11 +143,7 @@ export async function middleware(request: NextRequest) {
     return redirectToLogin(request);
   }
 
-  const response = NextResponse.next();
-  if (auth.refreshed) {
-    setAuthCookiesOnResponse(response, auth.tokens.accessToken, auth.tokens.refreshToken);
-  }
-  return response;
+  return buildAuthenticatedResponse(request, auth);
 }
 
 export const config = {

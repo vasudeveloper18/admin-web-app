@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccessToken } from '@/lib/auth-cookies';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '@/lib/branding';
 
 async function proxyRequest(request: NextRequest, pathSegments: string[]) {
   const path = pathSegments.join('/');
@@ -10,7 +10,7 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     url.searchParams.set(key, value);
   });
 
-  const accessToken = await getAccessToken();
+  const accessToken = request.headers.get('x-access-token') || (await getAccessToken());
 
   const headers: Record<string, string> = {
     'Content-Type': request.headers.get('content-type') || 'application/json',

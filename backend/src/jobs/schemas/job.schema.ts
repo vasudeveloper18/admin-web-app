@@ -94,6 +94,9 @@ export class Job {
 
   @Prop({ trim: true })
   cancelReason?: string;
+
+  @Prop({ type: Date, default: null })
+  cancelledAt!: Date | null;
 }
 
 export const JobSchema = SchemaFactory.createForClass(Job);

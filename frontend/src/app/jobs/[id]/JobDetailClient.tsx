@@ -2,13 +2,26 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { jobsApi, usersApi } from '@/lib/api';
+import { usersApi } from '@/lib/api';
+import {
+  assignTechnicianAction,
+  unassignTechnicianAction,
+  cancelJobAction,
+} from '@/app/jobs/actions';
 import { Job, JobStatus, User } from '@/types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   ChevronLeft, Calendar, MapPin, User2, AlignLeft, CheckCircle,
   AlertCircle, Settings, X, Image as ImageIcon, Navigation,
 } from 'lucide-react';
+import { AdminPageCard } from '@/components/layout/AdminPageCard';
+
+const CANCEL_REASONS = [
+  'Customer cancelled',
+  'Weather',
+  'Duplicate Job',
+  'Other',
+] as const;
 
 interface JobDetailClientProps {
   initialJob: Job;
@@ -22,8 +35,11 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
   const [technicians, setTechnicians] = useState<User[]>([]);
   const [techLoading, setTechLoading] = useState(false);
   const [selectedTechnicianId, setSelectedTechnicianId] = useState('');
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showUnassignModal, setShowUnassignModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
+  const [cancelReasonPreset, setCancelReasonPreset] = useState<string>(CANCEL_REASONS[0]);
+  const [cancelNotes, setCancelNotes] = useState('');
 
   const fetchTechnicians = async () => {
     setTechLoading(true);
@@ -37,13 +53,12 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
     }
   };
 
-  const handleAssignTechnician = async (technicianId: string) => {
-    if (!technicianId) return;
+  const handleAssignTechnician = async () => {
+    if (!selectedTechnicianId) return;
 
-    const tech = technicians.find((t) => t.id === technicianId);
+    const tech = technicians.find((t) => t.id === selectedTechnicianId);
     const previousJob = job;
 
-    // Optimistic update
     setJob((prev) => ({
       ...prev,
       status: JobStatus.ASSIGNED,
@@ -53,8 +68,15 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
     setActionError(null);
 
     try {
-      const res = await jobsApi.assignTechnician(job.id, technicianId);
-      if (res.success) setJob(res.data);
+      const res = await assignTechnicianAction(job.id, selectedTechnicianId);
+      if (res.success) {
+        setJob(res.data);
+        setShowAssignModal(false);
+        setSelectedTechnicianId('');
+      } else {
+        setJob(previousJob);
+        setActionError(res.message);
+      }
     } catch (err: unknown) {
       setJob(previousJob);
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -65,8 +87,6 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
   };
 
   const handleUnassignTechnician = async () => {
-    if (!confirm('Unassign technician from this job?')) return;
-
     const previousJob = job;
     setJob((prev) => ({
       ...prev,
@@ -77,8 +97,14 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
     setActionError(null);
 
     try {
-      const res = await jobsApi.unassignTechnician(job.id);
-      if (res.success) setJob(res.data);
+      const res = await unassignTechnicianAction(job.id);
+      if (res.success) {
+        setJob(res.data);
+        setShowUnassignModal(false);
+      } else {
+        setJob(previousJob);
+        setActionError(res.message);
+      }
     } catch (err: unknown) {
       setJob(previousJob);
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -89,9 +115,13 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
   };
 
   const handleCancelJob = async () => {
-    const trimmedReason = cancelReason.trim();
-    if (trimmedReason.length < 5) {
-      setActionError('Reason must be at least 5 characters long');
+    const notes = cancelNotes.trim();
+    const reason = cancelReasonPreset === 'Other'
+      ? notes
+      : notes ? `${cancelReasonPreset}: ${notes}` : cancelReasonPreset;
+
+    if (reason.trim().length < 5) {
+      setActionError('Please provide a cancellation reason (minimum 5 characters)');
       return;
     }
 
@@ -99,17 +129,21 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
     setJob((prev) => ({
       ...prev,
       status: JobStatus.CANCELLED,
-      cancelReason: trimmedReason,
+      cancelReason: reason,
     }));
     setActionLoading(true);
     setActionError(null);
 
     try {
-      const res = await jobsApi.cancelJob(job.id, trimmedReason);
+      const res = await cancelJobAction(job.id, reason);
       if (res.success) {
         setJob(res.data);
         setShowCancelModal(false);
-        setCancelReason('');
+        setCancelNotes('');
+        setCancelReasonPreset(CANCEL_REASONS[0]);
+      } else {
+        setJob(previousJob);
+        setActionError(res.message);
       }
     } catch (err: unknown) {
       setJob(previousJob);
@@ -128,48 +162,54 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
 
   const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${job.longitude - 0.01}%2C${job.latitude - 0.01}%2C${job.longitude + 0.01}%2C${job.latitude + 0.01}&layer=mapnik&marker=${job.latitude}%2C${job.longitude}`;
 
-  const isTerminal =
-    job.status === JobStatus.COMPLETED || job.status === JobStatus.CANCELLED;
+  const canAssign = job.status === JobStatus.PENDING;
+  const canUnassign = job.status === JobStatus.ASSIGNED;
   const canCancel =
     job.status !== JobStatus.COMPLETED && job.status !== JobStatus.CANCELLED;
+  const isTerminal =
+    job.status === JobStatus.COMPLETED || job.status === JobStatus.CANCELLED;
+  const showAssignedTechnician =
+    job.assignedTechnician &&
+    (job.status === JobStatus.ASSIGNED ||
+      job.status === JobStatus.IN_PROGRESS ||
+      job.status === JobStatus.COMPLETED);
 
   return (
-    <div style={{ padding: '32px', minHeight: '100vh', background: '#0f1117' }} className="animate-fadeIn">
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <button
-          onClick={() => router.back()}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: 'transparent', border: 'none', color: '#8b92a9',
-            fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 24, padding: 0,
-          }}
+    <div className="page-container animate-fadeIn">
+      <div className="page-inner page-inner--full">
+        <AdminPageCard
+          title={job.title}
+          actions={
+            <button
+              type="button"
+              onClick={() => router.push('/jobs')}
+              className="admin-page-card__btn admin-page-card__btn--secondary"
+            >
+              <ChevronLeft size={15} />
+              Back to Jobs
+            </button>
+          }
         >
-          <ChevronLeft size={16} /> Back to Jobs
-        </button>
+          <div className="admin-page-card__body admin-page-card__body--detail">
+            <div className="job-detail-summary">
+              <div className="job-detail-summary__top">
+                <StatusBadge status={job.status} size="md" />
+                <span className="job-detail-summary__id">ID: {job.id}</span>
+              </div>
+              <div className="job-detail-summary__meta">
+                <div className="job-detail-summary__meta-item">
+                  <Calendar size={14} /> {formatDate(job.scheduledDate)}
+                </div>
+                <div className="job-detail-summary__meta-item">
+                  <MapPin size={14} /> {job.address}
+                </div>
+                <div className="job-detail-summary__meta-item">
+                  <Navigation size={14} /> {job.latitude.toFixed(5)}, {job.longitude.toFixed(5)}
+                </div>
+              </div>
+            </div>
 
-        <div style={{
-          background: '#1a1d27', border: '1px solid rgba(255,255,255,0.06)',
-          borderRadius: 16, padding: 32, marginBottom: 24,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <StatusBadge status={job.status} size="md" />
-            <div style={{ fontSize: 12, color: '#8b92a9' }}>ID: {job.id}</div>
-          </div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#f0f2f8', marginBottom: 8 }}>{job.title}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, color: '#8b92a9', fontSize: 13, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Calendar size={14} /> {formatDate(job.scheduledDate)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <MapPin size={14} /> {job.address}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Navigation size={14} /> {job.latitude.toFixed(5)}, {job.longitude.toFixed(5)}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+        <div className="job-detail-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div style={{
               background: '#1a1d27', border: '1px solid rgba(255,255,255,0.06)',
@@ -262,22 +302,32 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
                 <Settings size={16} color="#6366f1" /> Admin Actions
               </h3>
 
-              {actionError && (
+              {actionError && !showAssignModal && !showUnassignModal && !showCancelModal && (
                 <div style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '10px 12px', borderRadius: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                   <AlertCircle size={14} />
                   <span>{actionError}</span>
                 </div>
               )}
 
-              {!isTerminal && (
-                <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <label style={{ fontSize: 12, fontWeight: 500, color: '#c5cae0', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <CheckCircle size={14} color="#6366f1" /> Assigned Technician
-                  </label>
-
-                  {job.assignedTechnician ? (
-                    <div>
-                      <div style={{ marginBottom: 12, padding: '12px', background: '#0f1117', borderRadius: 8, border: '1px solid rgba(99,102,241,0.2)' }}>
+              {isTerminal ? (
+                <p style={{ fontSize: 13, color: '#8b92a9', marginBottom: 16 }}>
+                  {job.status === JobStatus.COMPLETED
+                    ? 'This job is completed. No further admin actions are available.'
+                    : 'This job is cancelled. No further admin actions are available.'}
+                  {job.cancelledAt && (
+                    <span style={{ display: 'block', marginTop: 6, fontSize: 12 }}>
+                      Cancelled on {formatDate(job.cancelledAt)}
+                    </span>
+                  )}
+                </p>
+              ) : (
+                <>
+                  {showAssignedTechnician && job.assignedTechnician && (
+                    <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <label style={{ fontSize: 12, fontWeight: 500, color: '#c5cae0', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <CheckCircle size={14} color="#6366f1" /> Assigned Technician
+                      </label>
+                      <div style={{ padding: '12px', background: '#0f1117', borderRadius: 8, border: '1px solid rgba(99,102,241,0.2)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                           <div style={{
                             width: 32, height: 32, borderRadius: '50%',
@@ -295,72 +345,51 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={handleUnassignTechnician}
-                        disabled={actionLoading}
-                        style={{
-                          width: '100%', padding: '8px 14px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                          color: '#f87171', background: 'rgba(239,68,68,0.08)',
-                          border: '1px solid rgba(239,68,68,0.2)', cursor: actionLoading ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        Unassign
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <select
-                        value={selectedTechnicianId}
-                        onChange={(e) => setSelectedTechnicianId(e.target.value)}
-                        disabled={actionLoading || techLoading}
-                        onClick={() => technicians.length === 0 && fetchTechnicians()}
-                        style={{
-                          flex: 1, padding: '8px 12px', borderRadius: 6, fontSize: 12,
-                          background: '#0f1117', border: '1px solid rgba(99,102,241,0.3)',
-                          color: '#c5cae0', cursor: actionLoading || techLoading ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        <option value="">
-                          {techLoading ? 'Loading technicians...' : 'Select technician to assign...'}
-                        </option>
-                        {technicians.map((tech) => (
-                          <option key={tech.id} value={tech.id}>
-                            {tech.firstName} {tech.lastName} ({tech.email})
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => {
-                          if (selectedTechnicianId) {
-                            handleAssignTechnician(selectedTechnicianId);
-                            setSelectedTechnicianId('');
-                          }
-                        }}
-                        disabled={actionLoading || !selectedTechnicianId}
-                        style={{
-                          padding: '8px 14px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                          color: selectedTechnicianId ? 'white' : '#8b92a9',
-                          background: selectedTechnicianId ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(139,146,169,0.2)',
-                          border: 'none', cursor: (actionLoading || !selectedTechnicianId) ? 'not-allowed' : 'pointer',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        Assign
-                      </button>
                     </div>
                   )}
-                </div>
+
+                  {canAssign && (
+                    <button
+                      onClick={() => {
+                        setActionError(null);
+                        fetchTechnicians();
+                        setShowAssignModal(true);
+                      }}
+                      disabled={actionLoading}
+                      style={{
+                        width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                        color: 'white', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                        border: 'none', cursor: actionLoading ? 'not-allowed' : 'pointer', marginBottom: 12,
+                      }}
+                    >
+                      Assign Technician
+                    </button>
+                  )}
+
+                  {canUnassign && (
+                    <button
+                      onClick={() => { setActionError(null); setShowUnassignModal(true); }}
+                      disabled={actionLoading}
+                      style={{
+                        width: '100%', padding: '8px 14px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+                        color: '#f87171', background: 'rgba(239,68,68,0.08)',
+                        border: '1px solid rgba(239,68,68,0.2)', cursor: actionLoading ? 'not-allowed' : 'pointer',
+                        marginBottom: 12,
+                      }}
+                    >
+                      Unassign Technician
+                    </button>
+                  )}
+
+                  {job.status === JobStatus.IN_PROGRESS && (
+                    <p style={{ fontSize: 12, color: '#8b92a9', marginBottom: 12, fontStyle: 'italic' }}>
+                      Job is in progress. Technician actions are managed from the mobile app.
+                    </p>
+                  )}
+                </>
               )}
 
-              {isTerminal && (
-                <p style={{ fontSize: 12, color: '#8b92a9', marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  {job.status === JobStatus.COMPLETED
-                    ? 'This job is completed. Assignment changes are no longer available.'
-                    : 'This job is cancelled. Assignment changes are no longer available.'}
-                </p>
-              )}
-
-              <div>
+              <div style={{ marginTop: isTerminal ? 0 : 8, paddingTop: isTerminal ? 0 : 16, borderTop: isTerminal ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: '#c5cae0', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <AlertCircle size={14} color="#f87171" /> Cancel Job
                 </label>
@@ -368,7 +397,7 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
                   <p style={{ fontSize: 12, color: '#8b92a9', marginBottom: 10 }}>Reason: {job.cancelReason}</p>
                 )}
                 <button
-                  onClick={() => setShowCancelModal(true)}
+                  onClick={() => { setActionError(null); setShowCancelModal(true); }}
                   disabled={actionLoading || !canCancel}
                   style={{
                     width: '100%', padding: '8px 14px', borderRadius: 6, fontSize: 12, fontWeight: 500,
@@ -379,91 +408,219 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
                   }}
                 >
                   {!canCancel
-                    ? (job.status === JobStatus.COMPLETED ? 'Completed jobs cannot be cancelled' : 'Job Already Cancelled')
+                    ? (job.status === JobStatus.COMPLETED ? 'Completed' : 'Cancelled')
                     : 'Cancel Job'}
                 </button>
               </div>
             </div>
           </div>
         </div>
+          </div>
+        </AdminPageCard>
       </div>
 
-      {showCancelModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            background: '#1a1d27', borderRadius: 16, padding: 32, maxWidth: 500, width: '90%',
-            border: '1px solid rgba(255,255,255,0.06)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 600, color: '#f0f2f8' }}>Cancel Job</h2>
+      {showAssignModal && (
+        <div style={modalOverlayStyle}>
+          <div style={modalBoxStyle}>
+            <div style={modalHeaderStyle}>
+              <h2 style={{ fontSize: 18, fontWeight: 600, color: '#f0f2f8' }}>Assign Technician</h2>
               <button
-                onClick={() => { setShowCancelModal(false); setCancelReason(''); setActionError(null); }}
+                onClick={() => { setShowAssignModal(false); setSelectedTechnicianId(''); setActionError(null); }}
                 disabled={actionLoading}
-                style={{ background: 'none', border: 'none', color: '#8b92a9', cursor: actionLoading ? 'not-allowed' : 'pointer', padding: 0 }}
+                style={modalCloseBtnStyle}
               >
                 <X size={20} />
               </button>
             </div>
 
             {actionError && (
-              <div style={{
-                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
-                color: '#f87171', padding: '10px 12px', borderRadius: 8, marginBottom: 16,
-                display: 'flex', alignItems: 'center', gap: 8, fontSize: 12,
-              }}>
+              <div style={modalErrorStyle}>
                 <AlertCircle size={14} />
                 <span>{actionError}</span>
               </div>
             )}
 
+            <p style={{ fontSize: 13, color: '#8b92a9', marginBottom: 16 }}>Select a technician to assign to this job.</p>
+
+            {techLoading ? (
+              <p style={{ fontSize: 13, color: '#8b92a9', textAlign: 'center', padding: 20 }}>Loading technicians…</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+                {technicians.map((tech) => (
+                  <label
+                    key={tech.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
+                      borderRadius: 8, cursor: 'pointer',
+                      background: selectedTechnicianId === tech.id ? 'rgba(99,102,241,0.12)' : '#0f1117',
+                      border: selectedTechnicianId === tech.id ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="technician"
+                      value={tech.id}
+                      checked={selectedTechnicianId === tech.id}
+                      onChange={() => setSelectedTechnicianId(tech.id)}
+                      style={{ accentColor: '#6366f1' }}
+                    />
+                    <span style={{ fontSize: 13, color: '#c5cae0' }}>
+                      {tech.firstName} {tech.lastName}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                onClick={() => { setShowAssignModal(false); setSelectedTechnicianId(''); setActionError(null); }}
+                disabled={actionLoading}
+                style={modalSecondaryBtnStyle}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssignTechnician}
+                disabled={actionLoading || !selectedTechnicianId}
+                style={{
+                  ...modalPrimaryBtnStyle,
+                  opacity: (actionLoading || !selectedTechnicianId) ? 0.5 : 1,
+                }}
+              >
+                {actionLoading ? 'Assigning…' : 'Assign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUnassignModal && (
+        <div style={modalOverlayStyle}>
+          <div style={modalBoxStyle}>
+            <div style={modalHeaderStyle}>
+              <h2 style={{ fontSize: 18, fontWeight: 600, color: '#f0f2f8' }}>Unassign Technician</h2>
+              <button
+                onClick={() => { setShowUnassignModal(false); setActionError(null); }}
+                disabled={actionLoading}
+                style={modalCloseBtnStyle}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {actionError && (
+              <div style={modalErrorStyle}>
+                <AlertCircle size={14} />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <p style={{ fontSize: 14, color: '#c5cae0', marginBottom: 24 }}>
+              Are you sure you want to unassign{' '}
+              <strong>{job.assignedTechnician?.firstName} {job.assignedTechnician?.lastName}</strong>?
+              The job will return to <strong>PENDING</strong> status.
+            </p>
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                onClick={() => { setShowUnassignModal(false); setActionError(null); }}
+                disabled={actionLoading}
+                style={modalSecondaryBtnStyle}
+              >
+                No
+              </button>
+              <button
+                onClick={handleUnassignTechnician}
+                disabled={actionLoading}
+                style={{
+                  ...modalPrimaryBtnStyle,
+                  background: 'linear-gradient(135deg, #f87171, #fb7185)',
+                }}
+              >
+                {actionLoading ? 'Unassigning…' : 'Yes, Unassign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCancelModal && (
+        <div style={modalOverlayStyle}>
+          <div style={modalBoxStyle}>
+            <div style={modalHeaderStyle}>
+              <h2 style={{ fontSize: 18, fontWeight: 600, color: '#f0f2f8' }}>Cancel Job</h2>
+              <button
+                onClick={() => { setShowCancelModal(false); setCancelNotes(''); setCancelReasonPreset(CANCEL_REASONS[0]); setActionError(null); }}
+                disabled={actionLoading}
+                style={modalCloseBtnStyle}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {actionError && (
+              <div style={modalErrorStyle}>
+                <AlertCircle size={14} />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 500, color: '#c5cae0', marginBottom: 8, display: 'block' }}>
+                Reason <span style={{ color: '#f87171' }}>*</span>
+              </label>
+              <select
+                value={cancelReasonPreset}
+                onChange={(e) => { setCancelReasonPreset(e.target.value); setActionError(null); }}
+                disabled={actionLoading}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: 8,
+                  background: '#0f1117', border: '1px solid rgba(255,255,255,0.06)',
+                  color: '#c5cae0', fontSize: 13, outline: 'none',
+                }}
+              >
+                {CANCEL_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>{reason}</option>
+                ))}
+              </select>
+            </div>
+
             <div style={{ marginBottom: 24 }}>
               <label style={{ fontSize: 12, fontWeight: 500, color: '#c5cae0', marginBottom: 8, display: 'block' }}>
-                Cancellation Reason <span style={{ color: '#f87171' }}>*</span>
+                Notes {cancelReasonPreset === 'Other' && <span style={{ color: '#f87171' }}>*</span>}
               </label>
               <textarea
-                value={cancelReason}
-                onChange={(e) => { setCancelReason(e.target.value); setActionError(null); }}
-                placeholder="Enter reason (minimum 5 characters)..."
+                value={cancelNotes}
+                onChange={(e) => { setCancelNotes(e.target.value); setActionError(null); }}
+                placeholder={cancelReasonPreset === 'Other' ? 'Enter cancellation reason…' : 'Optional additional notes…'}
                 disabled={actionLoading}
                 style={{
                   width: '100%', padding: '12px', borderRadius: 8,
                   background: '#0f1117', border: '1px solid rgba(255,255,255,0.06)',
                   color: '#c5cae0', fontSize: 13, fontFamily: 'inherit',
-                  resize: 'vertical', minHeight: 100, outline: 'none',
+                  resize: 'vertical', minHeight: 80, outline: 'none',
                 }}
               />
-              <div style={{ fontSize: 11, color: '#8b92a9', marginTop: 6 }}>
-                {cancelReason.trim().length}/5 minimum characters required
-              </div>
             </div>
 
             <div style={{ display: 'flex', gap: 12 }}>
               <button
-                onClick={() => { setShowCancelModal(false); setCancelReason(''); setActionError(null); }}
+                onClick={() => { setShowCancelModal(false); setCancelNotes(''); setCancelReasonPreset(CANCEL_REASONS[0]); setActionError(null); }}
                 disabled={actionLoading}
-                style={{
-                  flex: 1, padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500,
-                  color: '#c5cae0', background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)', cursor: actionLoading ? 'not-allowed' : 'pointer',
-                }}
+                style={modalSecondaryBtnStyle}
               >
                 Dismiss
               </button>
               <button
                 onClick={handleCancelJob}
-                disabled={actionLoading || cancelReason.trim().length < 5}
+                disabled={actionLoading}
                 style={{
-                  flex: 1, padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500,
-                  color: cancelReason.trim().length < 5 ? '#8b92a9' : 'white',
-                  background: cancelReason.trim().length < 5 ? 'rgba(139,146,169,0.2)' : 'linear-gradient(135deg, #f87171, #fb7185)',
-                  border: 'none', cursor: (actionLoading || cancelReason.trim().length < 5) ? 'not-allowed' : 'pointer',
+                  ...modalPrimaryBtnStyle,
+                  background: 'linear-gradient(135deg, #f87171, #fb7185)',
                 }}
               >
-                {actionLoading ? 'Cancelling...' : 'Cancel Job'}
+                {actionLoading ? 'Cancelling…' : 'Submit'}
               </button>
             </div>
           </div>
@@ -472,3 +629,40 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
     </div>
   );
 }
+
+const modalOverlayStyle: React.CSSProperties = {
+  position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+  background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  zIndex: 1000,
+};
+
+const modalBoxStyle: React.CSSProperties = {
+  background: '#1a1d27', borderRadius: 16, padding: 32, maxWidth: 500, width: '90%',
+  border: '1px solid rgba(255,255,255,0.06)',
+};
+
+const modalHeaderStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24,
+};
+
+const modalCloseBtnStyle: React.CSSProperties = {
+  background: 'none', border: 'none', color: '#8b92a9', cursor: 'pointer', padding: 0,
+};
+
+const modalErrorStyle: React.CSSProperties = {
+  background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+  color: '#f87171', padding: '10px 12px', borderRadius: 8, marginBottom: 16,
+  display: 'flex', alignItems: 'center', gap: 8, fontSize: 12,
+};
+
+const modalSecondaryBtnStyle: React.CSSProperties = {
+  flex: 1, padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+  color: '#c5cae0', background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+};
+
+const modalPrimaryBtnStyle: React.CSSProperties = {
+  flex: 1, padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+  color: 'white', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+  border: 'none', cursor: 'pointer',
+};

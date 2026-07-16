@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { setAuthCookies } from '@/lib/auth-cookies';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '@/lib/branding';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Cannot reach the API server. Please ensure the backend is running on port 3001.',
+        },
+        { status: 503 }
+      );
+    }
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({
+      success: false,
+      message: 'Invalid response from authentication server.',
+    }));
 
     if (!res.ok) {
       return NextResponse.json(data, { status: res.status });
@@ -29,7 +42,7 @@ export async function POST(request: NextRequest) {
     });
   } catch {
     return NextResponse.json(
-      { success: false, message: 'Login failed. Please try again.' },
+      { success: false, message: 'An unexpected error occurred during login.' },
       { status: 500 }
     );
   }

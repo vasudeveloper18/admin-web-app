@@ -40,8 +40,8 @@ async function bootstrap() {
 
   // Swagger setup
   const config = new DocumentBuilder()
-    .setTitle('Admin Web App API')
-    .setDescription('The API documentation for the Admin Web Application')
+    .setTitle('FieldOps API')
+    .setDescription('API documentation for the FieldOps job dispatch platform')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
