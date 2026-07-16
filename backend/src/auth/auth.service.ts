@@ -41,9 +41,8 @@ export class AuthService {
   }
 
   async login(user: UserDocument) {
-    // Only ADMIN users can login to the Admin Web App
-    if (user.role !== 'ADMIN') {
-      throw new ForbiddenException('Only admin users are allowed to log in');
+    if (user.role !== 'ADMIN' && user.role !== 'TECHNICIAN') {
+      throw new ForbiddenException('Invalid user role');
     }
 
     const userId = (user._id as any).toString();

@@ -1,6 +1,6 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+// import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -38,23 +38,20 @@ async function bootstrap() {
   const reflector = app.get(Reflector);
   app.useGlobalInterceptors(new TransformInterceptor(reflector));
 
-  // Swagger setup
-  const config = new DocumentBuilder()
-    .setTitle('FieldOps API')
-    .setDescription('API documentation for the FieldOps job dispatch platform')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document, {
-    swaggerOptions: {
-      defaultModelsExpandDepth: -1,
-    },
-  });
+  // Swagger /docs temporarily disabled — uncomment block below to re-enable
+  // const config = new DocumentBuilder()
+  //   .setTitle('FieldOps API')
+  //   .setDescription('API documentation for the FieldOps job dispatch platform')
+  //   .setVersion('1.0')
+  //   .addBearerAuth()
+  //   .build();
+  // const document = SwaggerModule.createDocument(app, config);
+  // SwaggerModule.setup('docs', app, document, {
+  //   swaggerOptions: { defaultModelsExpandDepth: -1 },
+  // });
 
   const port = process.env.PORT ?? 3001;
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
-  console.log(`API documentation available at: http://localhost:${port}/docs`);
 }
 bootstrap();

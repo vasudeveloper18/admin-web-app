@@ -28,10 +28,10 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @SuccessMessage('Logged in successfully')
-  @ApiOperation({ summary: 'Login as an Admin' })
+  @ApiOperation({ summary: 'Login (Admin or Technician)' })
   @ApiResponse({ status: 200, description: 'Authentication successful. Returns access and refresh tokens.' })
   @ApiResponse({ status: 401, description: 'Invalid email or password' })
-  @ApiResponse({ status: 403, description: 'Access denied - ADMIN role required' })
+  @ApiResponse({ status: 403, description: 'Access denied - invalid user role' })
   async login(@Body() loginDto: LoginDto) {
     const user = await this.authService.validateUser(loginDto.email, loginDto.password);
     return this.authService.login(user);

@@ -14,9 +14,9 @@ export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Get('me')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'TECHNICIAN')
   @SuccessMessage('Profile retrieved successfully')
-  @ApiOperation({ summary: 'Get current user profile (Admin)' })
+  @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({ status: 200, description: 'User profile retrieved successfully.' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMe(@Req() req: any) {

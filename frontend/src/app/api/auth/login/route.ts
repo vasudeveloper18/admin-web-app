@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { setAuthCookies } from '@/lib/auth-cookies';
 import { API_BASE_URL } from '@/lib/branding';
 
+function getRoleFromAccessToken(accessToken: string): string | null {
+  try {
+    const payload = accessToken.split('.')[1];
+    if (!payload) return null;
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    return typeof decoded.role === 'string' ? decoded.role : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -33,6 +44,18 @@ export async function POST(request: NextRequest) {
     }
 
     const { accessToken, refreshToken } = data.data;
+
+    const tokenRole = getRoleFromAccessToken(accessToken);
+    if (tokenRole !== 'ADMIN') {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Only admin accounts can sign in to this panel.',
+        },
+        { status: 403 }
+      );
+    }
+
     await setAuthCookies(accessToken, refreshToken);
 
     return NextResponse.json({
