@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Eye, EyeOff, Shield, AlertCircle } from 'lucide-react';
-import { authApi, setTokenCookies } from '@/lib/api';
+import { authApi } from '@/lib/api';
 
 // ─── Validation Schema ────────────────────────────────────────────────────────
 
@@ -37,8 +37,7 @@ export default function LoginPage() {
     setServerError(null);
     try {
       const res = await authApi.login(data.email, data.password);
-      if (res.success && res.data.accessToken) {
-        setTokenCookies(res.data.accessToken, res.data.refreshToken);
+      if (res.success) {
         router.push('/jobs');
         router.refresh();
       } else {

@@ -1,17 +1,29 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Shield, Briefcase, PlusCircle, LogOut, ChevronRight } from 'lucide-react';
-import { authApi, clearTokenCookies } from '@/lib/api';
+import { authApi, usersApi } from '@/lib/api';
+import { User } from '@/types';
 
 const NAV_ITEMS = [
   { href: '/jobs', label: 'All Jobs', icon: Briefcase },
+  { href: '/jobs/new', label: 'New Job', icon: PlusCircle },
 ];
 
 export function JobsSidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    usersApi.getMe()
+      .then((res) => {
+        if (res.success) setCurrentUser(res.data);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -19,8 +31,8 @@ export function JobsSidebar() {
     } catch {
       // Ignore errors on logout
     } finally {
-      clearTokenCookies();
       router.push('/login');
+      router.refresh();
     }
   };
 
@@ -38,7 +50,6 @@ export function JobsSidebar() {
         height: '100vh',
       }}
     >
-      {/* Logo */}
       <div
         style={{
           padding: '24px 20px',
@@ -62,18 +73,22 @@ export function JobsSidebar() {
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#f0f2f8' }}>Admin Web App</div>
-            <div style={{ fontSize: 11, color: '#8b92a9', marginTop: 1 }}>admin@example.com</div>
+            <div style={{ fontSize: 11, color: '#8b92a9', marginTop: 1 }}>
+              {currentUser?.email ?? 'Loading…'}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Nav */}
       <nav style={{ padding: '16px 12px', flex: 1 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: '#4b5280', letterSpacing: '0.1em', marginBottom: 8, paddingLeft: 8 }}>
           MANAGEMENT
         </div>
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href || pathname.startsWith(href + '/');
+          const isActive =
+            href === '/jobs'
+              ? pathname === '/jobs'
+              : pathname.startsWith(href);
           return (
             <Link
               key={href}
@@ -114,7 +129,6 @@ export function JobsSidebar() {
         })}
       </nav>
 
-      {/* Logout */}
       <div style={{ padding: '16px 12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <button
           id="logout-btn"

@@ -39,8 +39,9 @@ cd frontend
 npm install
 ```
 
-Start the development server:
+Start the development server (copy `.env.local.example` to `.env.local` and add your Geoapify API key):
 ```bash
+cp .env.local.example .env.local   # Windows: copy .env.local.example .env.local
 npm run dev
 ```
 Access the application at `http://localhost:3000`. You can log in using the demo credentials:
@@ -59,9 +60,8 @@ Access the application at `http://localhost:3000`. You can log in using the demo
 
 ## Known Bugs and Rough Edges
 
-- **Session Handling:** The JWT authentication is stored in cookies, but a robust automatic token refresh mechanism (using the refresh token) hasn't been completely wired into Axios interceptors on the frontend.
-- **Pagination Sync:** The URL parameters control pagination, but navigating back and forth sometimes doesn't perfectly rehydrate the component state instantly.
-- **Map View:** The job creation allows latitude/longitude entry, but there isn't a full visual map implementation (e.g., Google Maps API) for assigning technicians based on geographic proximity yet.
+- **Session Handling:** JWT access and refresh tokens are stored in httpOnly cookies via Next.js API routes (BFF proxy). Client-side JavaScript cannot read tokens; all API calls go through `/api/proxy`.
+- **Geoapify Address Autocomplete:** Job creation requires selecting an address from Geoapify suggestions so latitude/longitude are sent to the backend. Set `GEOAPIFY_API_KEY` in `frontend/.env.local` (see `.env.local.example`).
 
 ## What I Would Do with Two More Weeks
 
