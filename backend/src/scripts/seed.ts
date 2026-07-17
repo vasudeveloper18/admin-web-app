@@ -6,7 +6,7 @@ import { JobSchema, JobStatus } from '../jobs/schemas/job.schema';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
-// Load env variables
+// Load env variables 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/admin-web-app';
