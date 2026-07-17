@@ -11,9 +11,7 @@ import { API_BASE_URL } from '@/lib/branding';
 const PUBLIC_API_PREFIXES = ['/api/auth/login', '/api/auth/refresh'];
 
 function redirectToLogin(request: NextRequest) {
-  const url = request.nextUrl.clone();
-  url.pathname = '/login';
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(new URL('/login', request.url));
 }
 
 function setAuthCookiesOnResponse(
@@ -108,11 +106,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith('/login')) {
+    if (request.nextUrl.search) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
     const auth = await authenticateRequest(request);
     if (auth) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/jobs';
-      const response = NextResponse.redirect(url);
+      const response = NextResponse.redirect(new URL('/jobs', request.url));
       if (auth.refreshed) {
         setAuthCookiesOnResponse(response, auth.tokens.accessToken, auth.tokens.refreshToken);
       }

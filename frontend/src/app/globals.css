@@ -715,7 +715,7 @@ button:not(.profile-menu__trigger):not(.profile-menu__signout):not(.app-header__
   background: #1a1d27;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  z-index: 100;
+  z-index: 1000;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
   max-height: 220px;
   overflow-y: auto;
@@ -789,6 +789,15 @@ button:not(.profile-menu__trigger):not(.profile-menu__signout):not(.app-header__
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+/* Create job address dropdown must not be clipped by card overflow */
+.admin-page-card--form {
+  overflow: visible;
+}
+
+.admin-page-card--form .admin-page-card__body {
+  overflow: visible;
 }
 
 .admin-page-card--loading,

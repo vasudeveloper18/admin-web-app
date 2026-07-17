@@ -44,8 +44,7 @@ export function AppHeader({ onMenuToggle }: AppHeaderProps) {
     } catch {
       // Ignore errors on logout
     } finally {
-      router.push('/login');
-      router.refresh();
+      router.replace('/login');
     }
   };
 

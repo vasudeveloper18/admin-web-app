@@ -61,7 +61,10 @@ export function AddressAutocomplete({ value, onChange, error, disabled }: Addres
         const data = await res.json();
 
         if (!res.ok) {
-          setLookupError(data.message || 'Address lookup unavailable');
+          const message =
+            data.message ||
+            (res.status === 401 ? 'Session expired — please sign in again' : 'Address lookup unavailable');
+          setLookupError(message);
           setSuggestions([]);
           setOpen(false);
           return;
@@ -113,10 +116,6 @@ export function AddressAutocomplete({ value, onChange, error, disabled }: Addres
 
       {lookupError && (
         <p className="address-autocomplete__hint address-autocomplete__hint--warning">{lookupError}</p>
-      )}
-
-      {!error && !lookupError && input.trim().length > 0 && input.trim().length < 3 && (
-        <p className="address-autocomplete__hint">Type at least 3 characters to search</p>
       )}
 
       {!error && !lookupError && input.trim().length >= 3 && !loading && suggestions.length === 0 && open && (

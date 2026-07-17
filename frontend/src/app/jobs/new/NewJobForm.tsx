@@ -83,6 +83,7 @@ export function NewJobForm() {
       <div className="page-inner page-inner--full">
         <AdminPageCard
           title="Create New Job"
+          className="admin-page-card--form"
           actions={
             <button type="button" onClick={() => router.back()} className="admin-page-card__btn admin-page-card__btn--secondary">
               <ArrowLeft size={15} />

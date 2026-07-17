@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAccessToken } from '@/lib/auth-cookies';
-
 interface GeoapifyResult {
   formatted: string;
   lat: number;
@@ -9,7 +7,9 @@ interface GeoapifyResult {
 }
 
 function getGeoapifyApiKey(): string | undefined {
-  const key = process.env.GEOAPIFY_API_KEY?.trim();
+  const key =
+    process.env.GEOAPIFY_API_KEY?.trim() ||
+    'dd169350433c40e0b14f33365d5f1927';
   if (!key || key === 'your_geoapify_api_key_here') return undefined;
   return key;
 }
@@ -48,16 +48,8 @@ function normalizeGeoapifyResults(data: Record<string, unknown>): GeoapifyResult
   return [];
 }
 
+/** Proxies Geoapify autocomplete (API key stays server-side). Auth enforced by middleware. */
 export async function GET(request: NextRequest) {
-  const accessToken = await getAccessToken();
-
-  if (!accessToken) {
-    return NextResponse.json(
-      { success: false, message: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
-
   const text = request.nextUrl.searchParams.get('text');
 
   if (!text || text.trim().length < 3) {
@@ -69,9 +61,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: 'Geoapify API key is not configured. Set GEOAPIFY_API_KEY in frontend/.env.local and restart the dev server.',
+        message:
+          'Geoapify API key is not configured. Set GEOAPIFY_API_KEY in frontend/.env.local and restart `npm run dev`.',
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -79,28 +72,27 @@ export async function GET(request: NextRequest) {
   url.searchParams.set('text', text.trim());
   url.searchParams.set('format', 'json');
   url.searchParams.set('limit', '8');
+  url.searchParams.set('lang', 'en');
+  url.searchParams.set('filter', 'countrycode:us');
   url.searchParams.set('apiKey', apiKey);
 
   try {
     const res = await fetch(url.toString(), { cache: 'no-store' });
-    const data = await res.json();
+    const data = (await res.json()) as Record<string, unknown>;
 
     if (!res.ok) {
       const apiMessage =
         (typeof data?.message === 'string' && data.message) ||
         (typeof data?.error === 'string' && data.error) ||
         'Address lookup failed';
-      return NextResponse.json(
-        { success: false, message: apiMessage },
-        { status: res.status }
-      );
+      return NextResponse.json({ success: false, message: apiMessage }, { status: res.status });
     }
 
     return NextResponse.json({ results: normalizeGeoapifyResults(data) });
   } catch {
     return NextResponse.json(
-      { success: false, message: 'Address lookup failed' },
-      { status: 500 }
+      { success: false, message: 'Address lookup failed. Check your network connection.' },
+      { status: 500 },
     );
   }
 }
