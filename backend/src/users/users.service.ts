@@ -31,7 +31,7 @@ export class UsersService {
     const email = data.email.trim().toLowerCase();
     if (email !== user.email) {
       const existing = await this.userModel.findOne({ email }).exec();
-      if (existing && existing.id !== user.id) {
+      if (existing && String(existing._id) !== String(user._id)) {
         throw new ConflictException('Email is already in use');
       }
     }
