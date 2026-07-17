@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "FieldOps API",
-    "description": "API collection for the FieldOps job dispatch platform. All protected endpoints require a Bearer token in the Authorization header.",
+    "description": "API collection for the FieldOps job dispatch platform. Mirrors Swagger at /docs (except GET /uploads/files, which is excluded from Swagger). Protected endpoints use Bearer {{accessToken}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -22,6 +22,20 @@
     }
   ],
   "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "API Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/",
+            "description": "Public check that the API is running. No auth required."
+          }
+        }
+      ]
+    },
     {
       "name": "Authentication",
       "item": [
@@ -101,7 +115,23 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
             "url": "{{baseUrl}}/me",
-            "description": "Get the currently authenticated admin user's profile."
+            "description": "Current user profile (id, email, name, role). ADMIN or TECHNICIAN. Same as Swagger GET /me."
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Admin\",\n  \"lastName\": \"User\",\n  \"email\": \"admin@example.com\"\n}"
+            },
+            "url": "{{baseUrl}}/me",
+            "description": "Update firstName, lastName, email for the logged-in user. ADMIN or TECHNICIAN. Returns 409 if email is already in use."
           }
         },
         {
@@ -110,7 +140,7 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
             "url": "{{baseUrl}}/technicians",
-            "description": "Get a list of all technician users for assignment."
+            "description": "List technician users for job assignment. ADMIN only."
           }
         }
       ]
@@ -227,7 +257,7 @@
               "raw": "{\n  \"technicianId\": \"TECHNICIAN_ID_HERE\"\n}"
             },
             "url": "{{baseUrl}}/jobs/JOB_ID_HERE/assign",
-            "description": "Assign a technician to a job. Job must not be COMPLETED or CANCELLED."
+            "description": "Assign a technician to a job. Job status must be PENDING (ADMIN only)."
           }
         },
         {
@@ -293,7 +323,24 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": "{{baseUrl}}/me"
+            "url": "{{baseUrl}}/me",
+            "description": "Same as Users → Get My Profile. TECHNICIAN after Technician Login."
+          }
+        },
+        {
+          "name": "Update My Profile (technician)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Marcus\",\n  \"lastName\": \"Technician\",\n  \"email\": \"marcus@fieldops.com\"\n}"
+            },
+            "url": "{{baseUrl}}/me",
+            "description": "Same as Users → Update My Profile. PATCH /me for logged-in technician."
           }
         },
         {
