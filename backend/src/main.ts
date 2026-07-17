@@ -12,6 +12,7 @@ async function bootstrap() {
   // Security headers (CSP relaxed enough for Swagger UI at /docs)
   app.use(
     helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
       contentSecurityPolicy: {
         directives: {
           defaultSrc: [`'self'`],

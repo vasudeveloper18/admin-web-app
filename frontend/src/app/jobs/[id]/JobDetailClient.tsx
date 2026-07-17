@@ -45,7 +45,7 @@ function CompletionPhotoThumb({ photo, index }: { photo: string; index: number }
           textAlign: 'center',
         }}
       >
-        Photo unavailable (re-upload after deploy or file expired on server)
+        Photo unavailable
       </div>
     );
   }
@@ -291,8 +291,7 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
               </a>
             </div>
 
-            {(job.completionPhotos.length > 0 ||
-              (job.status === JobStatus.COMPLETED && job.completionNotes)) && (
+            {job.completionPhotos.length > 0 && (
               <div style={{
                 background: '#1a1d27', border: '1px solid rgba(255,255,255,0.06)',
                 borderRadius: 16, padding: 24,
@@ -300,22 +299,11 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
                 <h3 style={{ fontSize: 14, fontWeight: 600, color: '#e2e5f0', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ImageIcon size={16} color="#6366f1" /> Completion Photos
                 </h3>
-                {job.completionPhotos.length > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-                    {job.completionPhotos.map((photo, i) => (
-                      <CompletionPhotoThumb key={`${photo}-${i}`} photo={photo} index={i} />
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ fontSize: 13, color: '#8b92a9', fontStyle: 'italic', margin: 0 }}>
-                    No completion photos uploaded.
-                  </p>
-                )}
-                {job.completionNotes && (
-                  <p style={{ marginTop: 16, fontSize: 13, color: '#8b92a9', fontStyle: 'italic' }}>
-                    Notes: {job.completionNotes}
-                  </p>
-                )}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                  {job.completionPhotos.map((photo, i) => (
+                    <CompletionPhotoThumb key={`${photo}-${i}`} photo={photo} index={i} />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -501,7 +489,6 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
                       value={tech.id}
                       checked={selectedTechnicianId === tech.id}
                       onChange={() => setSelectedTechnicianId(tech.id)}
-                      style={{ accentColor: '#6366f1' }}
                     />
                     <span style={{ fontSize: 13, color: '#c5cae0' }}>
                       {tech.firstName} {tech.lastName}

@@ -30,10 +30,16 @@ export function AddressAutocomplete({ value, onChange, error, disabled, coordina
   const [open, setOpen] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const skipFetchRef = useRef(false);
+  const committedAddressRef = useRef<string | null>(null);
+  const fetchGenerationRef = useRef(0);
 
   useEffect(() => {
     setInput(value);
-  }, [value]);
+    if (value && coordinatesSet && value === committedAddressRef.current) {
+      skipFetchRef.current = true;
+    }
+  }, [value, coordinatesSet]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -46,6 +52,11 @@ export function AddressAutocomplete({ value, onChange, error, disabled, coordina
   }, []);
 
   useEffect(() => {
+    if (skipFetchRef.current) {
+      skipFetchRef.current = false;
+      return;
+    }
+
     const query = input.trim();
     if (query.length < 1) {
       setSuggestions([]);
@@ -53,7 +64,14 @@ export function AddressAutocomplete({ value, onChange, error, disabled, coordina
       return;
     }
 
+    if (coordinatesSet && query === committedAddressRef.current) {
+      setSuggestions([]);
+      setOpen(false);
+      return;
+    }
+
     const timer = setTimeout(async () => {
+      const generation = ++fetchGenerationRef.current;
       setLoading(true);
       setLookupError(null);
       try {
@@ -61,6 +79,10 @@ export function AddressAutocomplete({ value, onChange, error, disabled, coordina
           credentials: 'same-origin',
         });
         const data = await res.json();
+
+        if (generation !== fetchGenerationRef.current) {
+          return;
+        }
 
         if (!res.ok) {
           const message =
@@ -74,22 +96,34 @@ export function AddressAutocomplete({ value, onChange, error, disabled, coordina
 
         const results: GeoapifyResult[] = data.results || [];
         setSuggestions(results);
-        setOpen(results.length > 0);
+        if (coordinatesSet && query === committedAddressRef.current) {
+          setOpen(false);
+        } else {
+          setOpen(results.length > 0);
+        }
       } catch {
         setLookupError('Address lookup failed');
         setSuggestions([]);
         setOpen(false);
       } finally {
-        setLoading(false);
+        if (generation === fetchGenerationRef.current) {
+          setLoading(false);
+        }
       }
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [input]);
+  }, [input, coordinatesSet]);
 
   const handleSelect = (result: GeoapifyResult) => {
+    fetchGenerationRef.current += 1;
+    skipFetchRef.current = true;
+    committedAddressRef.current = result.formatted;
     setInput(result.formatted);
+    setSuggestions([]);
     setOpen(false);
+    setLoading(false);
+    setLookupError(null);
     onChange({ address: result.formatted, latitude: result.lat, longitude: result.lon });
   };
 
@@ -104,11 +138,20 @@ export function AddressAutocomplete({ value, onChange, error, disabled, coordina
           placeholder="Start typing an address…"
           onChange={(e) => {
             const nextValue = e.target.value;
+            committedAddressRef.current = null;
+            skipFetchRef.current = false;
             setInput(nextValue);
             setOpen(true);
             onChange({ address: nextValue, latitude: 0, longitude: 0 });
           }}
-          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          onFocus={() => {
+            if (coordinatesSet && input === committedAddressRef.current) {
+              return;
+            }
+            if (suggestions.length > 0) {
+              setOpen(true);
+            }
+          }}
           aria-autocomplete="list"
           aria-expanded={open}
           className={`address-autocomplete__input${error ? ' address-autocomplete__input--error' : ''}`}
@@ -128,7 +171,12 @@ export function AddressAutocomplete({ value, onChange, error, disabled, coordina
         <ul className="address-autocomplete__list">
           {suggestions.map((result, i) => (
             <li key={i}>
-              <button type="button" className="address-autocomplete__option" onClick={() => handleSelect(result)}>
+              <button
+                type="button"
+                className="address-autocomplete__option"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect(result)}
+              >
                 <MapPin size={14} />
                 <span>{result.formatted}</span>
               </button>

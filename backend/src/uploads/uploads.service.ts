@@ -113,7 +113,7 @@ export class UploadsService {
     const existing = await bucket.find({ filename: safeKey }).limit(1).toArray();
     if (existing.length > 0) {
       return {
-        stream: bucket.openDownloadStreamByName(safeKey),
+        stream: bucket.openDownloadStream(existing[0]._id),
         contentType:
           (existing[0].metadata as { mimetype?: string } | undefined)?.mimetype || contentType,
       };
