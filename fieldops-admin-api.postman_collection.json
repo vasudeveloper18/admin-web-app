@@ -258,8 +258,8 @@
       ]
     },
     {
-      "name": "Mobile (Technician) — Start & Complete",
-      "description": "New mobile endpoints only. Use auth/login first to set accessToken.",
+      "name": "Mobile (Technician)",
+      "description": "Mobile app surface: login → /me → /jobs/my → start → complete (multipart). Use Technician Login first.",
       "item": [
         {
           "name": "Technician Login (get token)",
@@ -271,6 +271,7 @@
                   "const res = pm.response.json();",
                   "if (res.data && res.data.accessToken) {",
                   "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -285,6 +286,40 @@
               "raw": "{\n  \"email\": \"marcus@fieldops.com\",\n  \"password\": \"TechPass123!\"\n}"
             },
             "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Get My Profile (technician)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/me"
+          }
+        },
+        {
+          "name": "Get My Jobs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/my?sortBy=scheduledDate&sortOrder=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "my"],
+              "query": [
+                { "key": "sortBy", "value": "scheduledDate" },
+                { "key": "sortOrder", "value": "desc" },
+                { "key": "status", "value": "ASSIGNED", "disabled": true }
+              ]
+            },
+            "description": "All jobs assigned to the logged-in technician. Optional status filter. No server pagination."
+          }
+        },
+        {
+          "name": "Logout (technician)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/auth/logout"
           }
         },
         {

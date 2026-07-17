@@ -124,7 +124,7 @@ export class TechnicianJobsController {
       throw new BadRequestException('At least one photo file is required (field name: photos)');
     }
 
-    const photoUrls = this.uploadsService.saveCompletionPhotos(uploaded);
+    const photoUrls = await this.uploadsService.saveCompletionPhotos(uploaded);
     return this.jobsService.completeJob(id, req.user.sub, {
       completionNotes: notes,
       completionPhotos: photoUrls,

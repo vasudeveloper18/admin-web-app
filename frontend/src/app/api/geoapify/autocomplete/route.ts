@@ -6,10 +6,14 @@ interface GeoapifyResult {
   lon: number;
 }
 
-function getGeoapifyApiKey(): string | undefined {
+const GEOAPIFY_FALLBACK_KEY = 'dd169350433c40e0b14f33365d5f1927';
+
+function getGeoapifyApiKey(): string {
   const key = process.env.GEOAPIFY_API_KEY?.trim();
-  if (!key || key === 'dd169350433c40e0b14f33365d5f1927') return undefined;
-  return key;
+  if (key) {
+    return key;
+  }
+  return GEOAPIFY_FALLBACK_KEY;
 }
 
 function normalizeGeoapifyResults(data: Record<string, unknown>): GeoapifyResult[] {
@@ -55,16 +59,6 @@ export async function GET(request: NextRequest) {
   }
 
   const apiKey = getGeoapifyApiKey();
-  if (!apiKey) {
-    return NextResponse.json(
-      {
-        success: false,
-        message:
-          'Geoapify API key is not configured. Set GEOAPIFY_API_KEY in frontend/.env.local and restart `npm run dev`.',
-      },
-      { status: 500 },
-    );
-  }
 
   const url = new URL('https://api.geoapify.com/v1/geocode/autocomplete');
   url.searchParams.set('text', text.trim());

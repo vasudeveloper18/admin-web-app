@@ -11,8 +11,14 @@ export class UploadsController {
 
   @Get('files/:key')
   async getFile(@Param('key') key: string, @Res() res: Response) {
-    const filePath = this.uploadsService.getUploadedFile(key);
-    const contentType = this.uploadsService.getContentType(key);
-    return res.sendFile(filePath, { headers: { 'Content-Type': contentType } });
+    const { stream, contentType } = await this.uploadsService.openPhotoStream(key);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    stream.on('error', () => {
+      if (!res.headersSent) {
+        res.status(404).end();
+      }
+    });
+    stream.pipe(res);
   }
 }

@@ -1,72 +1,157 @@
 # FieldOps Admin
 
-This is a full-stack web application designed for administrators to manage field operations, assign technicians to jobs, and track statuses in real-time.
+Admin web app and NestJS API for field job dispatch.
 
-## Setup Instructions
-
-These instructions will guide you through running the application from a clean clone.
+## Setup (clean clone)
 
 ### Prerequisites
-- **Node.js** (v18 or higher recommended)
-- **MongoDB** running locally on default port `27017`.
 
-### 1. Backend Setup
+- **Node.js** 18+
+- **MongoDB** on `mongodb://127.0.0.1:27017` (or Atlas via `MONGODB_URI`)
 
-Open a terminal and navigate to the `backend` directory:
+### Backend
 
 ```bash
 cd backend
 npm install
-```
-
-Seed the database (this will create an admin user and some test technicians/jobs):
-```bash
-npx ts-node src/scripts/seed.ts
-```
-
-Start the development server:
-```bash
+copy .env.example .env    # Mac/Linux: cp .env.example .env — set MONGODB_URI + JWT secrets
+npm run seed
 npm run start:dev
 ```
-The API runs at `http://localhost:3001` with Swagger docs available at `http://localhost:3001/docs`.
 
-### 2. Frontend Setup
+- API: `http://127.0.0.1:3001`
+- Swagger: `http://127.0.0.1:3001/docs`
+- Health: `GET /`
 
-Open a new terminal and navigate to the `frontend` directory:
+### Frontend
 
 ```bash
 cd frontend
 npm install
+copy .env.local.example .env.local   # Mac/Linux: cp .env.local.example .env.local
 ```
 
-Start the development server (copy `.env.local.example` to `.env.local` and add your Geoapify API key):
+Set in `frontend/.env.local` (optional — a fallback key is used in code if unset):
+
+```env
+NEXT_PUBLIC_API_URL=http://127.0.0.1:3001
+GEOAPIFY_API_KEY=<your Geoapify key>
+```
+
+Restart the dev server after changing env:
+
 ```bash
-cp .env.local.example .env.local   # Windows: copy .env.local.example .env.local
 npm run dev
 ```
-Access the application at `http://localhost:3000`. You can log in using the demo credentials:
-- Email: **admin@example.com**
-- Password: **Admin123!**
+
+- Admin UI: `http://localhost:3000`
+
+### Demo credentials (after seed)
+
+| Role | Email | Password |
+|------|--------|----------|
+| Admin | `admin@example.com` | `Admin123!` |
+| Technician | `marcus@fieldops.com` | `TechPass123!` |
 
 ---
 
-## Architecture Decisions & Trade-offs
+## Submission scope checklist
 
-- **Monorepo-like Structure:** We kept the `frontend` and `backend` in the same repository for ease of deployment and shared context, though they have their own `package.json` files to maintain clean dependency boundaries.
-- **NestJS (Backend):** Chosen for its strong architectural patterns, out-of-the-box TypeScript support, and built-in dependency injection, which allows the application to scale elegantly.
-- **Next.js (Frontend):** Selected for its React Server Components, fast routing, and SEO optimization. We opted for a client-heavy approach (`'use client'`) for dashboards to support rich interactivity while relying on server actions where appropriate.
-- **Zod Validation:** Used on both frontend and backend (via pipes) to ensure a single source of truth for schema validation and robust runtime safety.
-- **Vanilla CSS / Inline Styles over Tailwind classes:** In certain areas, we opted for direct style application to bypass potential PostCSS/Tailwind compilation inconsistencies in Next.js 15 + Tailwind v4 setups, prioritizing a functional, pixel-perfect UI quickly over relying on the utility engine.
+| Deliverable | Status |
+|-------------|--------|
+| Admin web (login, jobs list, create job, detail, assign/unassign/cancel, logout) | Implemented |
+| REST API + Swagger at `/docs` | Yes |
+| Postman collection (repo root) | Yes |
+| RBAC (`ADMIN` / `TECHNICIAN`) | Yes |
+| Job indexes | Below |
 
-## Known Bugs and Rough Edges
+---
 
-- **Session Handling:** JWT access and refresh tokens are stored in httpOnly cookies via Next.js API routes (BFF proxy). Client-side JavaScript cannot read tokens; all API calls go through `/api/proxy`.
-- **Geoapify Address Autocomplete:** Job creation requires selecting an address from Geoapify suggestions so latitude/longitude are sent to the backend. Set `GEOAPIFY_API_KEY` in `frontend/.env.local` (see `.env.local.example`).
+## Admin web flow (verify before submit)
 
-## What I Would Do with Two More Weeks
+1. **Login** — `/login` → httpOnly cookies, admin only on web BFF.
+2. **Jobs list** — `/jobs` — server pagination, filters (status, technician, date range, search).
+3. **Create job** — `/jobs/new` — Geoapify address autocomplete (US); must pick a suggestion (lat/lng stored).
+4. **Job detail** — `/jobs/[id]` — assign / unassign / cancel; **completion photos** use public API URLs. On Vercel set `NEXT_PUBLIC_API_URL` to your API origin (see Production URLs).
+5. **Logout** — profile menu; session cleared.
 
-- **Interactive Maps Integration:** Add a map component showing the location of unassigned jobs and available technicians to optimize routing.
-- **Real-time Updates:** Implement WebSockets (e.g., Socket.io or Server-Sent Events) so the admin dashboard updates instantaneously when a technician marks a job as "In Progress" or "Completed" in the field.
-- **Testing Coverage:** Introduce robust End-to-End testing with Playwright or Cypress for critical flows (creating jobs, assigning technicians) and expand Jest coverage for all NestJS services.
-- **Role-Based Access Control (RBAC):** Build out a more granular permissions system, differentiating between Super Admins, Dispatchers, and Read-Only viewers.
-- **CI/CD Pipeline:** Add GitHub Actions to automatically run linters, build checks, and tests on every Pull Request.
+**Production admin:** set `NEXT_PUBLIC_API_URL` and optionally `GEOAPIFY_API_KEY` on Vercel, then redeploy.
+
+---
+
+## API documentation
+
+| Resource | Location |
+|----------|----------|
+| Swagger (live) | `http://127.0.0.1:3001/docs` |
+| Postman | `fieldops-admin-api.postman_collection.json` (repo root) |
+
+**Admin API (Bearer token):** login, jobs CRUD/assign/unassign/cancel, technicians list, profile.
+
+Completion photos on completed jobs are stored in **MongoDB GridFS** and served at `GET /uploads/files/:filename`. URLs use `API_BASE_URL` or Render `RENDER_EXTERNAL_URL`.
+
+---
+
+## Database indexes & `GET /jobs` performance
+
+Indexes on `Job`:
+
+| Index | Purpose |
+|-------|---------|
+| `status` | Filter by job status |
+| `assignedTechnician` | Filter by technician |
+| `scheduledDate` | Sort and date-range filters |
+| `location` (2dsphere) | Geospatial data on jobs |
+
+These indexes support admin `GET /jobs` filters, sort, and pagination.
+
+---
+
+## Architecture (summary)
+
+- **Monorepo:** `backend/` (NestJS) + `frontend/` (Next.js App Router).
+- **Auth:** JWT access + refresh; admin web stores tokens in **httpOnly cookies** via Next.js BFF (`/api/proxy`, `/api/auth/*`).
+- **Validation:** class-validator (API) + Zod (create job form).
+- **RBAC:** `ADMIN` vs `TECHNICIAN` on backend guards.
+
+---
+
+## Known limitations
+
+- Geoapify: optional `GEOAPIFY_API_KEY` in `frontend/.env.local` / Vercel; address autocomplete uses a built-in fallback when env is not set.
+- Completion photos in GridFS; re-complete a job if an old upload 404s after a pre-GridFS deploy.
+- Set strong `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` on Render (defaults are local-dev only).
+
+---
+
+## Production URLs (reference)
+
+| Service | URL |
+|---------|-----|
+| API | `https://admin-web-app-qn62.onrender.com` |
+| Admin web | `https://admin-web-app-wgaj.vercel.app` |
+
+Set `NEXT_PUBLIC_API_URL` in Vercel; set `MONGODB_URI` and JWT secrets on Render. Optional `GEOAPIFY_API_KEY` and `API_BASE_URL` if not using `RENDER_EXTERNAL_URL`.
+
+---
+
+## Quick verification (local)
+
+```bash
+cd backend && npm run build && npm run seed && npm run start:dev
+cd frontend && npm run build && npm run dev
+```
+
+1. Admin: login → create job (address suggestion) → assign → view completed seed job photos.
+2. Postman: import collection and exercise admin auth + jobs endpoints.
+3. Swagger: `http://127.0.0.1:3001/docs`.
+
+---
+
+## Scripts
+
+| Command | Where |
+|---------|--------|
+| `npm run seed` | `backend/` — reset demo data |
+| `npm run build` | `backend/`, `frontend/` — verified passing |
+| `npm run start:dev` | local development |

@@ -15,6 +15,7 @@ import {
   AlertCircle, Settings, X, Image as ImageIcon, Navigation,
 } from 'lucide-react';
 import { AdminPageCard } from '@/components/layout/AdminPageCard';
+import { resolveCompletionPhotoUrl } from '@/lib/completion-photos';
 
 const CANCEL_REASONS = [
   'Customer cancelled',
@@ -22,6 +23,50 @@ const CANCEL_REASONS = [
   'Duplicate Job',
   'Other',
 ] as const;
+
+function CompletionPhotoThumb({ photo, index }: { photo: string; index: number }) {
+  const [failed, setFailed] = useState(false);
+  const src = resolveCompletionPhotoUrl(photo);
+
+  if (failed) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: 120,
+          borderRadius: 10,
+          border: '1px dashed rgba(255,255,255,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 12,
+          fontSize: 12,
+          color: '#8b92a9',
+          textAlign: 'center',
+        }}
+      >
+        Photo unavailable (re-upload after deploy or file expired on server)
+      </div>
+    );
+  }
+
+  return (
+    <a href={src} target="_blank" rel="noopener noreferrer">
+      <img
+        src={src}
+        alt={`Completion photo ${index + 1}`}
+        onError={() => setFailed(true)}
+        style={{
+          width: '100%',
+          height: 120,
+          objectFit: 'cover',
+          borderRadius: 10,
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}
+      />
+    </a>
+  );
+}
 
 interface JobDetailClientProps {
   initialJob: Job;
@@ -258,13 +303,7 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
                 {job.completionPhotos.length > 0 ? (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
                     {job.completionPhotos.map((photo, i) => (
-                      <a key={i} href={photo} target="_blank" rel="noopener noreferrer">
-                        <img
-                          src={photo}
-                          alt={`Completion photo ${i + 1}`}
-                          style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}
-                        />
-                      </a>
+                      <CompletionPhotoThumb key={`${photo}-${i}`} photo={photo} index={i} />
                     ))}
                   </div>
                 ) : (
