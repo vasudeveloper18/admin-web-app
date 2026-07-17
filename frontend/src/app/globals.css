@@ -137,7 +137,7 @@ input::placeholder, textarea::placeholder {
   transition: background-color 5000s ease-in-out 0s;
 }
 
-button:not(.profile-menu__trigger):not(.profile-menu__signout):not(.app-header__menu-btn):not(.dashboard-sidebar__close):not(.btn-back):not(.btn-submit):not(.address-autocomplete__option):not(.btn-filter):not(.jobs-list-card__btn-advanced):not(.jobs-list-card__btn-clear):not(.pagination-btn):not(.admin-page-card__btn) {
+button:not(.profile-menu__trigger):not(.profile-menu__signout):not(.profile-menu__link):not(.app-header__menu-btn):not(.dashboard-sidebar__close):not(.btn-back):not(.btn-submit):not(.btn-cancel):not(.address-autocomplete__option):not(.btn-filter):not(.jobs-list-card__btn-advanced):not(.jobs-list-card__btn-clear):not(.pagination-btn):not(.admin-page-card__btn) {
   font-family: inherit;
   cursor: pointer;
   padding: 12px 24px;
@@ -452,6 +452,25 @@ button:not(.profile-menu__trigger):not(.profile-menu__signout):not(.app-header__
   background: rgba(239, 68, 68, 0.1);
 }
 
+.profile-menu__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #c5cae0;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.profile-menu__link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e5f0;
+}
+
 /* ─── Page Layout Helpers ──────────────────────────────────────────────────── */
 .page-container {
   padding: 20px 16px 28px;
@@ -592,6 +611,22 @@ button:not(.profile-menu__trigger):not(.profile-menu__signout):not(.app-header__
   gap: 14px;
 }
 
+.form-row--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+}
+
+.profile-edit-form__name-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+}
+
+.profile-edit-form .form-field {
+  min-width: 0;
+}
+
 .form-label {
   font-size: 13px;
   font-weight: 500;
@@ -625,6 +660,63 @@ button:not(.profile-menu__trigger):not(.profile-menu__signout):not(.app-header__
   font-size: 12px;
   color: #f87171;
   margin: 0;
+}
+
+.form-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+  margin-left: 0;
+  margin-right: auto;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.form-actions .btn-cancel,
+.form-actions .btn-submit {
+  flex: none !important;
+  width: auto !important;
+  max-width: none;
+  margin-top: 0;
+}
+
+.form-actions .btn-submit {
+  min-width: 120px;
+  padding: 10px 20px !important;
+  font-size: 13px;
+}
+
+.form-actions .btn-cancel {
+  min-width: 88px;
+  padding: 10px 18px !important;
+}
+
+.btn-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c4c9d8;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f0f2f8;
+}
+
+.btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-back {
@@ -922,6 +1014,118 @@ button:not(.profile-menu__trigger):not(.profile-menu__signout):not(.app-header__
 
 .admin-page-card__body--detail {
   gap: 24px;
+}
+
+.admin-page-card__subtitle {
+  margin: 0 0 4px;
+  padding: 0 24px;
+  font-size: 13px;
+  color: #8b92a9;
+}
+
+.admin-table-wrap {
+  padding: 0 24px 24px;
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: #8b92a9;
+  font-weight: 500;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #c5cae0;
+}
+
+.admin-table__name,
+.admin-table__muted {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-table__muted {
+  color: #8b92a9;
+}
+
+.admin-table__empty {
+  text-align: center;
+  padding: 32px 12px !important;
+  color: #8b92a9;
+  font-style: italic;
+}
+
+.profile-page {
+  padding: 8px 24px 28px;
+}
+
+.profile-page__hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.profile-page__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.profile-page__name {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #f0f2f8;
+}
+
+.profile-page__details {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-page__row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.profile-page__row dt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #8b92a9;
+}
+
+.profile-page__row dd {
+  margin: 0;
+  font-size: 14px;
+  color: #e2e5f0;
 }
 
 .job-detail-summary {
@@ -1635,6 +1839,10 @@ button:not(.profile-menu__trigger):not(.profile-menu__signout):not(.app-header__
   }
 
   .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-edit-form__name-row {
     grid-template-columns: 1fr;
   }
 

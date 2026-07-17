@@ -37,7 +37,8 @@ export function JobsSidebar({ open = false, onClose }: JobsSidebarProps) {
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const isActive =
             href === '/jobs'
-              ? pathname === '/jobs' || (pathname.startsWith('/jobs/') && !pathname.startsWith('/jobs/new'))
+              ? pathname === '/jobs' ||
+                (pathname.startsWith('/jobs/') && !pathname.startsWith('/jobs/new'))
               : pathname.startsWith(href);
           return (
             <Link

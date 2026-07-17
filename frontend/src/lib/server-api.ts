@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 
-import { ApiResponse, Job, JobsQueryParams, PaginatedJobs } from '@/types';
+import { ApiResponse, Job, JobsQueryParams, PaginatedJobs, User } from '@/types';
 
 import {
 
@@ -218,7 +218,27 @@ export async function fetchJob(id: string): Promise<Job> {
 
 export async function fetchMe() {
 
-  const res = await serverFetch<ApiResponse<import('@/types').User>>('/me');
+  const res = await serverFetch<ApiResponse<User>>('/me');
+
+  return res.data;
+
+}
+
+
+
+export async function updateProfile(data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+}): Promise<User> {
+
+  const res = await serverFetch<ApiResponse<User>>('/me', {
+
+    method: 'PATCH',
+
+    body: JSON.stringify(data),
+
+  });
 
   return res.data;
 

@@ -90,7 +90,7 @@ export function NewJobForm() {
           title="Create New Job"
           className="admin-page-card--form"
           actions={
-            <button type="button" onClick={() => router.back()} className="admin-page-card__btn admin-page-card__btn--secondary">
+            <button type="button" onClick={() => router.push('/jobs')} className="admin-page-card__btn admin-page-card__btn--secondary">
               <ArrowLeft size={15} />
               Back
             </button>
@@ -164,16 +164,26 @@ export function NewJobForm() {
               {errors.scheduledDate && <p className="form-error">{errors.scheduledDate.message}</p>}
             </div>
 
-            <button type="submit" disabled={isSubmitting} className="btn-submit">
-              {isSubmitting ? (
-                <span className="btn-submit__loading">
-                  <span className="data-table-spinner" />
-                  Creating…
-                </span>
-              ) : (
-                'Create Job'
-              )}
-            </button>
+            <div className="form-actions">
+              <button type="submit" disabled={isSubmitting} className="btn-submit">
+                {isSubmitting ? (
+                  <span className="btn-submit__loading">
+                    <span className="data-table-spinner" />
+                    Creating…
+                  </span>
+                ) : (
+                  'Create Job'
+                )}
+              </button>
+              <button
+                type="button"
+                className="btn-cancel"
+                disabled={isSubmitting}
+                onClick={() => router.push('/jobs')}
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         </AdminPageCard>
       </div>

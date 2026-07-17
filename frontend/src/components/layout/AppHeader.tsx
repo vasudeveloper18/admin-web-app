@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, Menu } from 'lucide-react';
+import { LogOut, Menu, UserCircle } from 'lucide-react';
+import Link from 'next/link';
 import { authApi, usersApi } from '@/lib/api';
 import { User } from '@/types';
 import { BRAND } from '@/lib/branding';
@@ -96,6 +97,15 @@ export function AppHeader({ onMenuToggle }: AppHeaderProps) {
             </div>
 
             <div className="profile-menu__divider" />
+
+            <Link
+              href="/profile"
+              className="profile-menu__link"
+              onClick={() => setMenuOpen(false)}
+            >
+              <UserCircle size={16} />
+              Edit Profile
+            </Link>
 
             <button type="button" className="profile-menu__signout" onClick={handleLogout}>
               <LogOut size={16} />

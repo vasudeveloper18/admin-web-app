@@ -74,6 +74,7 @@ npm run dev
 3. **Create job** — `/jobs/new` — Geoapify address autocomplete (US); must pick a suggestion (lat/lng stored).
 4. **Job detail** — `/jobs/[id]` — assign / unassign / cancel; **completion photos** use public API URLs. On Vercel set `NEXT_PUBLIC_API_URL` to your API origin (see Production URLs).
 5. **Logout** — profile menu; session cleared.
+6. **Edit profile** — `/profile` — update name and email (`PATCH /me`); open from header menu → **Edit Profile**.
 
 **Production admin:** set `NEXT_PUBLIC_API_URL` and optionally `GEOAPIFY_API_KEY` on Vercel, then redeploy.
 
