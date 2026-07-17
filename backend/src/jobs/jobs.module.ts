@@ -7,11 +7,13 @@ import { JobsController } from './jobs.controller';
 import { TechnicianJobsController } from './technician-jobs.controller';
 import { Job, JobSchema } from './schemas/job.schema';
 import { UsersModule } from '../users/users.module';
+import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Job.name, schema: JobSchema }]),
     UsersModule,
+    UploadsModule,
     JwtModule,
     ConfigModule,
   ],

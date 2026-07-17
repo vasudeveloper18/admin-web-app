@@ -11,7 +11,6 @@ import { Job, JobDocument, JobStatus } from './schemas/job.schema';
 import { CreateJobDto } from './dto/create-job.dto';
 import { JobsQueryDto } from './dto/jobs-query.dto';
 import { MyJobsQueryDto } from './dto/my-jobs-query.dto';
-import { NearbyJobsQueryDto } from './dto/nearby-jobs-query.dto';
 import { CompleteJobDto } from './dto/complete-job.dto';
 import { UsersService } from '../users/users.service';
 
@@ -183,8 +182,8 @@ export class JobsService {
       throw new BadRequestException('Invalid technician ID format');
     }
 
-    const { page, limit, status, sortBy, sortOrder } = queryDto;
-    const query: any = {
+    const { status, sortBy, sortOrder } = queryDto;
+    const query: Record<string, unknown> = {
       assignedTechnician: new Types.ObjectId(technicianId),
     };
 
@@ -192,76 +191,16 @@ export class JobsService {
       query.status = status;
     }
 
-    const skip = (page - 1) * limit;
     const sortField = sortBy || 'scheduledDate';
     const sortDir = sortOrder === 'asc' ? 1 : -1;
 
-    const [jobs, total] = await Promise.all([
-      this.jobModel
-        .find(query)
-        .sort({ [sortField]: sortDir })
-        .skip(skip)
-        .limit(limit)
-        .populate('assignedTechnician')
-        .exec(),
-      this.jobModel.countDocuments(query).exec(),
-    ]);
-
-    return {
-      jobs,
-      total,
-      page,
-      limit,
-      pages: Math.ceil(total / limit),
-    };
-  }
-
-  async findNearby(queryDto: NearbyJobsQueryDto) {
-    const { lat, lng, radius } = queryDto;
-    const radiusMeters = radius * 1000;
-
     const jobs = await this.jobModel
-      .aggregate([
-        {
-          $geoNear: {
-            near: { type: 'Point', coordinates: [lng, lat] },
-            distanceField: 'distanceMeters',
-            maxDistance: radiusMeters,
-            spherical: true,
-            query: {
-              status: JobStatus.PENDING,
-              assignedTechnician: null,
-            },
-          },
-        },
-        { $sort: { distanceMeters: 1 } },
-        { $limit: 50 },
-      ])
+      .find(query)
+      .sort({ [sortField]: sortDir })
+      .populate('assignedTechnician')
       .exec();
 
-    return jobs.map((job) => ({
-      ...job,
-      id: job._id,
-      distanceKm: Math.round((job.distanceMeters / 1000) * 100) / 100,
-    }));
-  }
-
-  async findByIdForTechnician(id: string, technicianId: string): Promise<JobDocument> {
-    const job = await this.findById(id);
-    const techId = new Types.ObjectId(technicianId);
-
-    const isAssignedToTechnician =
-      job.assignedTechnician &&
-      job.assignedTechnician.toString() === techId.toString();
-
-    const isUnassignedPending =
-      job.status === JobStatus.PENDING && !job.assignedTechnician;
-
-    if (!isAssignedToTechnician && !isUnassignedPending) {
-      throw new ForbiddenException('You do not have access to this job');
-    }
-
-    return job;
+    return { jobs };
   }
 
   async startJob(id: string, technicianId: string): Promise<JobDocument> {

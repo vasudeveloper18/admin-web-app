@@ -1,6 +1,6 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-// import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -9,8 +9,19 @@ import helmet from 'helmet';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Security headers using Helmet
-  app.use(helmet());
+  // Security headers (CSP relaxed enough for Swagger UI at /docs)
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: [`'self'`],
+          styleSrc: [`'self'`, `'unsafe-inline'`],
+          scriptSrc: [`'self'`, `'unsafe-inline'`, `'unsafe-eval'`],
+          imgSrc: [`'self'`, 'data:', 'https:'],
+        },
+      },
+    }),
+  );
 
   // Enable CORS
   app.enableCors({
@@ -38,20 +49,35 @@ async function bootstrap() {
   const reflector = app.get(Reflector);
   app.useGlobalInterceptors(new TransformInterceptor(reflector));
 
-  // Swagger /docs temporarily disabled — uncomment block below to re-enable
-  // const config = new DocumentBuilder()
-  //   .setTitle('FieldOps API')
-  //   .setDescription('API documentation for the FieldOps job dispatch platform')
-  //   .setVersion('1.0')
-  //   .addBearerAuth()
-  //   .build();
-  // const document = SwaggerModule.createDocument(app, config);
-  // SwaggerModule.setup('docs', app, document, {
-  //   swaggerOptions: { defaultModelsExpandDepth: -1 },
-  // });
+  // Swagger API docs at /docs
+  const config = new DocumentBuilder()
+    .setTitle('FieldOps API')
+    .setVersion('1.0')
+    .addServer('https://admin-web-app-qn62.onrender.com')
+    .addTag('Authentication', 'Login, logout, refresh tokens (mobile: login + logout)')
+    .addTag('Users', 'Profile GET /me (mobile + admin); technicians list (admin only)')
+    .addTag('Mobile (Technician)', 'GET /jobs/my, PATCH start, PATCH complete')
+    .addTag('Jobs (Admin)', 'Admin panel only — not used by mobile app')
+    .addBearerAuth({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      description: 'Paste accessToken from POST /auth/login (without the word Bearer)',
+    })
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document, {
+    swaggerOptions: {
+      defaultModelsExpandDepth: -1,
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
+      persistAuthorization: true,
+    },
+  });
 
   const port = process.env.PORT ?? 3001;
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
+  console.log(`Swagger docs: http://localhost:${port}/docs`);
 }
 bootstrap();

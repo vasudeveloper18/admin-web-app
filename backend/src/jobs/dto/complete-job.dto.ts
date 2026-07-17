@@ -9,7 +9,7 @@ export class CompleteJobDto {
 
   @ApiProperty({
     example: ['https://example.com/uploads/photo1.jpg'],
-    description: 'URLs of uploaded completion photos (from presign flow)',
+    description: 'URLs of stored completion photos',
   })
   @IsArray()
   @IsUrl({}, { each: true })

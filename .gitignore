@@ -37,4 +37,5 @@ logs/
 
 # Project specific
 backend/dist/
+backend/uploads/
 frontend/.next/

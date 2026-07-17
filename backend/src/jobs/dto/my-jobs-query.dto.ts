@@ -1,34 +1,22 @@
-import { IsOptional, IsInt, Min, IsEnum, IsString } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsEnum, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { JobStatus } from '../schemas/job.schema';
 
 export class MyJobsQueryDto {
-  @ApiPropertyOptional({ example: 1, description: 'Page number' })
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  page = 1;
-
-  @ApiPropertyOptional({ example: 10, description: 'Number of items per page' })
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  limit = 10;
-
-  @ApiPropertyOptional({ enum: JobStatus, description: 'Filter by job status' })
+  @ApiPropertyOptional({
+    enum: JobStatus,
+    description: 'Optional filter: ASSIGNED | IN_PROGRESS | COMPLETED (app handles paging locally)',
+  })
   @IsEnum(JobStatus)
   @IsOptional()
   status?: JobStatus;
 
-  @ApiPropertyOptional({ example: 'scheduledDate', description: 'Field to sort by' })
+  @ApiPropertyOptional({ example: 'scheduledDate', description: 'Sort field (default scheduledDate)' })
   @IsString()
   @IsOptional()
   sortBy = 'scheduledDate';
 
-  @ApiPropertyOptional({ example: 'desc', description: 'Sort direction (asc or desc)' })
+  @ApiPropertyOptional({ example: 'desc', description: 'Sort direction (default desc)' })
   @IsString()
   @IsOptional()
   sortOrder = 'desc';

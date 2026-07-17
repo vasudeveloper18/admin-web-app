@@ -16,7 +16,10 @@ export class UsersController {
   @Get('me')
   @Roles('ADMIN', 'TECHNICIAN')
   @SuccessMessage('Profile retrieved successfully')
-  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiOperation({
+    summary: 'Profile (mobile + admin)',
+    description: 'Returns current user (id, email, name, role). **Mobile:** TECHNICIAN after login.',
+  })
   @ApiResponse({ status: 200, description: 'User profile retrieved successfully.' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMe(@Req() req: any) {

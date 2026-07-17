@@ -10,15 +10,15 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { SuccessMessage } from '../common/decorators/success-message.decorator';
 
-@ApiTags('Jobs')
+@ApiTags('Jobs (Admin)')
 @Controller('jobs')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
 @ApiBearerAuth()
 export class JobsController {
   constructor(private jobsService: JobsService) {}
 
   @Post()
+  @Roles('ADMIN')
   @SuccessMessage('Job created successfully')
   @ApiOperation({ summary: 'Create a new service job' })
   @ApiResponse({ status: 201, description: 'Job successfully created.' })
@@ -30,6 +30,7 @@ export class JobsController {
   }
 
   @Get()
+  @Roles('ADMIN')
   @SuccessMessage('Jobs list retrieved successfully')
   @ApiOperation({ summary: 'Get list of jobs with pagination, filtering, searching and sorting' })
   @ApiResponse({ status: 200, description: 'Paginated list of jobs.' })
@@ -40,6 +41,7 @@ export class JobsController {
   }
 
   @Get(':id')
+  @Roles('ADMIN')
   @SuccessMessage('Job details retrieved successfully')
   @ApiOperation({ summary: 'Get job details by ID' })
   @ApiResponse({ status: 200, description: 'Detailed job record.' })
@@ -51,6 +53,7 @@ export class JobsController {
   }
 
   @Patch(':id/assign')
+  @Roles('ADMIN')
   @SuccessMessage('Technician assigned successfully')
   @ApiOperation({ summary: 'Assign a technician to a job' })
   @ApiResponse({ status: 200, description: 'Job assigned successfully.' })
@@ -63,6 +66,7 @@ export class JobsController {
   }
 
   @Patch(':id/unassign')
+  @Roles('ADMIN')
   @SuccessMessage('Technician unassigned successfully')
   @ApiOperation({ summary: 'Unassign technician from a job' })
   @ApiResponse({ status: 200, description: 'Job unassigned successfully.' })
@@ -75,6 +79,7 @@ export class JobsController {
   }
 
   @Patch(':id/cancel')
+  @Roles('ADMIN')
   @SuccessMessage('Job cancelled successfully')
   @ApiOperation({ summary: 'Cancel a job with a reason' })
   @ApiResponse({ status: 200, description: 'Job cancelled successfully.' })

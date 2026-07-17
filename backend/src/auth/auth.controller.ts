@@ -28,7 +28,11 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @SuccessMessage('Logged in successfully')
-  @ApiOperation({ summary: 'Login (Admin or Technician)' })
+  @ApiOperation({
+    summary: 'Login (mobile + admin)',
+    description:
+      '**Mobile:** `marcus@fieldops.com` / `TechPass123!` (technician). Returns `accessToken` and `refreshToken` in `data`.',
+  })
   @ApiResponse({ status: 200, description: 'Authentication successful. Returns access and refresh tokens.' })
   @ApiResponse({ status: 401, description: 'Invalid email or password' })
   @ApiResponse({ status: 403, description: 'Access denied - invalid user role' })
@@ -64,7 +68,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @SuccessMessage('Logged out successfully')
-  @ApiOperation({ summary: 'Logout and invalidate refresh token' })
+  @ApiOperation({
+    summary: 'Logout (mobile + admin)',
+    description: 'Invalidates refresh token. Requires Bearer access token.',
+  })
   @ApiResponse({ status: 200, description: 'Logged out successfully.' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async logout(@Req() req: any) {
