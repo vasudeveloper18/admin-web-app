@@ -7,16 +7,48 @@ import * as path from 'path';
 @Injectable()
 export class UploadsService {
   private readonly uploadsDir: string;
-  private readonly baseUrl: string;
 
   constructor(private configService: ConfigService) {
     this.uploadsDir = path.join(process.cwd(), 'uploads');
     if (!fs.existsSync(this.uploadsDir)) {
       fs.mkdirSync(this.uploadsDir, { recursive: true });
     }
-    this.baseUrl =
-      this.configService.get<string>('API_BASE_URL') ||
-      `http://127.0.0.1:${this.configService.get<string>('PORT') || '3001'}`;
+  }
+
+  /** Public origin for completion photo links (must be reachable by mobile/admin clients). */
+  getPublicBaseUrl(): string {
+    const configured =
+      this.configService.get<string>('API_BASE_URL')?.trim() ||
+      this.configService.get<string>('RENDER_EXTERNAL_URL')?.trim();
+    if (configured) {
+      return configured.replace(/\/$/, '');
+    }
+    const port = this.configService.get<string>('PORT') || '3001';
+    return `http://127.0.0.1:${port}`;
+  }
+
+  /** Turn stored path or legacy absolute URL into a client-accessible URL. */
+  resolvePhotoUrl(stored: string): string {
+    if (!stored) {
+      return stored;
+    }
+    const base = this.getPublicBaseUrl();
+    if (stored.startsWith('/')) {
+      return `${base}${stored}`;
+    }
+    try {
+      const pathname = new URL(stored).pathname;
+      if (pathname.startsWith('/uploads/files/')) {
+        return `${base}${pathname}`;
+      }
+    } catch {
+      /* not a URL */
+    }
+    return stored;
+  }
+
+  resolvePhotoUrls(urls: string[]): string[] {
+    return urls.map((u) => this.resolvePhotoUrl(u));
   }
 
   saveCompletionPhotos(files: { buffer: Buffer; originalname: string; mimetype: string }[]): string[] {
@@ -32,14 +64,18 @@ export class UploadsService {
       const ext = path.extname(file.originalname) || this.extFromMime(file.mimetype);
       const key = `${randomBytes(16).toString('hex')}${ext}`;
       fs.writeFileSync(path.join(this.uploadsDir, key), file.buffer);
-      urls.push(`${this.baseUrl}/uploads/files/${key}`);
+      urls.push(`/uploads/files/${key}`);
     }
 
     return urls;
   }
 
   getUploadedFile(key: string) {
-    const filePath = path.join(this.uploadsDir, key);
+    const safeKey = path.basename(key);
+    if (safeKey !== key || !/^[a-f0-9]+\.(jpg|jpeg|png|webp|gif)$/i.test(safeKey)) {
+      throw new NotFoundException('File not found');
+    }
+    const filePath = path.join(this.uploadsDir, safeKey);
     if (!fs.existsSync(filePath)) {
       throw new NotFoundException('File not found');
     }

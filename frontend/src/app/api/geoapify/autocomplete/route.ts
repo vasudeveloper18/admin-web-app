@@ -7,10 +7,8 @@ interface GeoapifyResult {
 }
 
 function getGeoapifyApiKey(): string | undefined {
-  const key =
-    process.env.GEOAPIFY_API_KEY?.trim() ||
-    'dd169350433c40e0b14f33365d5f1927';
-  if (!key || key === 'your_geoapify_api_key_here') return undefined;
+  const key = process.env.GEOAPIFY_API_KEY?.trim();
+  if (!key || key === 'dd169350433c40e0b14f33365d5f1927') return undefined;
   return key;
 }
 
@@ -52,7 +50,7 @@ function normalizeGeoapifyResults(data: Record<string, unknown>): GeoapifyResult
 export async function GET(request: NextRequest) {
   const text = request.nextUrl.searchParams.get('text');
 
-  if (!text || text.trim().length < 3) {
+  if (!text || text.trim().length < 1) {
     return NextResponse.json({ results: [] });
   }
 

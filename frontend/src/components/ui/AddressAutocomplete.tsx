@@ -20,9 +20,10 @@ interface AddressAutocompleteProps {
   onChange: (selection: AddressSelection) => void;
   error?: string;
   disabled?: boolean;
+  coordinatesSet?: boolean;
 }
 
-export function AddressAutocomplete({ value, onChange, error, disabled }: AddressAutocompleteProps) {
+export function AddressAutocomplete({ value, onChange, error, disabled, coordinatesSet }: AddressAutocompleteProps) {
   const [input, setInput] = useState(value);
   const [suggestions, setSuggestions] = useState<GeoapifyResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,7 +46,8 @@ export function AddressAutocomplete({ value, onChange, error, disabled }: Addres
   }, []);
 
   useEffect(() => {
-    if (input.trim().length < 3) {
+    const query = input.trim();
+    if (query.length < 1) {
       setSuggestions([]);
       setOpen(false);
       return;
@@ -55,7 +57,7 @@ export function AddressAutocomplete({ value, onChange, error, disabled }: Addres
       setLoading(true);
       setLookupError(null);
       try {
-        const res = await fetch(`/api/geoapify/autocomplete?text=${encodeURIComponent(input.trim())}`, {
+        const res = await fetch(`/api/geoapify/autocomplete?text=${encodeURIComponent(query)}`, {
           credentials: 'same-origin',
         });
         const data = await res.json();
@@ -118,7 +120,7 @@ export function AddressAutocomplete({ value, onChange, error, disabled }: Addres
         <p className="address-autocomplete__hint address-autocomplete__hint--warning">{lookupError}</p>
       )}
 
-      {!error && !lookupError && input.trim().length >= 3 && !loading && suggestions.length === 0 && open && (
+      {!error && !lookupError && input.trim().length >= 1 && !loading && suggestions.length === 0 && open && (
         <p className="address-autocomplete__hint address-autocomplete__hint--warning">No addresses found. Try a different search.</p>
       )}
 
@@ -133,6 +135,10 @@ export function AddressAutocomplete({ value, onChange, error, disabled }: Addres
             </li>
           ))}
         </ul>
+      )}
+
+      {coordinatesSet && !error && (
+        <p className="address-autocomplete__hint">Location coordinates saved for this address.</p>
       )}
 
       {error && <p className="address-autocomplete__hint address-autocomplete__hint--error">{error}</p>}

@@ -47,7 +47,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@fieldops.com\",\n  \"password\": \"AdminPass123!\"\n}"
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"Admin123!\"\n}"
             },
             "url": "{{baseUrl}}/auth/login",
             "description": "Login with admin credentials. Automatically saves accessToken and refreshToken to collection variables."

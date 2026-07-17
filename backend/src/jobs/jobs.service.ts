@@ -13,13 +13,22 @@ import { JobsQueryDto } from './dto/jobs-query.dto';
 import { MyJobsQueryDto } from './dto/my-jobs-query.dto';
 import { CompleteJobDto } from './dto/complete-job.dto';
 import { UsersService } from '../users/users.service';
+import { UploadsService } from '../uploads/uploads.service';
 
 @Injectable()
 export class JobsService {
   constructor(
     @InjectModel(Job.name) private jobModel: Model<JobDocument>,
     private usersService: UsersService,
+    private uploadsService: UploadsService,
   ) {}
+
+  private withPublicPhotoUrls(job: JobDocument): JobDocument {
+    if (job.completionPhotos?.length) {
+      job.completionPhotos = this.uploadsService.resolvePhotoUrls(job.completionPhotos);
+    }
+    return job;
+  }
 
   async create(createJobDto: CreateJobDto): Promise<JobDocument> {
     const jobData = {
@@ -98,7 +107,7 @@ export class JobsService {
     ]);
 
     return {
-      jobs,
+      jobs: jobs.map((j) => this.withPublicPhotoUrls(j)),
       total,
       page,
       limit,
@@ -116,7 +125,7 @@ export class JobsService {
       throw new NotFoundException(`Job with ID ${id} not found`);
     }
 
-    return job;
+    return this.withPublicPhotoUrls(job);
   }
 
   async assignTechnician(id: string, technicianId: string): Promise<JobDocument> {
@@ -200,7 +209,7 @@ export class JobsService {
       .populate('assignedTechnician')
       .exec();
 
-    return { jobs };
+    return { jobs: jobs.map((j) => this.withPublicPhotoUrls(j)) };
   }
 
   async startJob(id: string, technicianId: string): Promise<JobDocument> {

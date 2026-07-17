@@ -35,6 +35,7 @@ export function NewJobForm() {
     control,
     setValue,
     clearErrors,
+    watch,
     formState: { errors, isSubmitting, submitCount },
     reset,
   } = useForm<JobForm>({
@@ -47,6 +48,10 @@ export function NewJobForm() {
       longitude: 0,
     },
   });
+
+  const latitude = watch('latitude');
+  const longitude = watch('longitude');
+  const coordinatesSet = latitude !== 0 && longitude !== 0;
 
   const addressError = submitCount > 0
     ? (errors.address?.message || errors.latitude?.message || errors.longitude?.message)
@@ -129,6 +134,8 @@ export function NewJobForm() {
 
             <div className="form-field">
               <label className="form-label">Address *</label>
+              <input type="hidden" {...register('latitude', { valueAsNumber: true })} />
+              <input type="hidden" {...register('longitude', { valueAsNumber: true })} />
               <Controller
                 name="address"
                 control={control}
@@ -137,10 +144,11 @@ export function NewJobForm() {
                     value={field.value}
                     disabled={isSubmitting}
                     error={addressError}
+                    coordinatesSet={coordinatesSet}
                     onChange={(selection) => {
                       field.onChange(selection.address);
-                      setValue('latitude', selection.latitude, { shouldValidate: false });
-                      setValue('longitude', selection.longitude, { shouldValidate: false });
+                      setValue('latitude', selection.latitude, { shouldValidate: false, shouldDirty: true });
+                      setValue('longitude', selection.longitude, { shouldValidate: false, shouldDirty: true });
                       if (selection.latitude !== 0 && selection.longitude !== 0) {
                         clearErrors(['latitude', 'longitude', 'address']);
                       }
