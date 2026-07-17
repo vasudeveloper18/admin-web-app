@@ -32,3 +32,11 @@ export function resolveCompletionPhotoUrl(photo: string): string {
     return photo;
   }
 }
+
+/** Drop empty entries before rendering the gallery. */
+export function getDisplayCompletionPhotos(photos: string[] | undefined | null): string[] {
+  if (!photos?.length) {
+    return [];
+  }
+  return photos.map((p) => p?.trim()).filter((p): p is string => Boolean(p));
+}

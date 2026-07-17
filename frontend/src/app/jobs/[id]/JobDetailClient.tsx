@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { usersApi } from '@/lib/api';
 import {
@@ -15,7 +15,7 @@ import {
   AlertCircle, Settings, X, Image as ImageIcon, Navigation,
 } from 'lucide-react';
 import { AdminPageCard } from '@/components/layout/AdminPageCard';
-import { resolveCompletionPhotoUrl } from '@/lib/completion-photos';
+import { getDisplayCompletionPhotos, resolveCompletionPhotoUrl } from '@/lib/completion-photos';
 
 const CANCEL_REASONS = [
   'Customer cancelled',
@@ -24,30 +24,18 @@ const CANCEL_REASONS = [
   'Other',
 ] as const;
 
-function CompletionPhotoThumb({ photo, index }: { photo: string; index: number }) {
-  const [failed, setFailed] = useState(false);
+function CompletionPhotoThumb({
+  photo,
+  index,
+  onUnavailable,
+}: {
+  photo: string;
+  index: number;
+  onUnavailable: (photo: string) => void;
+}) {
   const src = resolveCompletionPhotoUrl(photo);
-
-  if (failed) {
-    return (
-      <div
-        style={{
-          width: '100%',
-          height: 120,
-          borderRadius: 10,
-          border: '1px dashed rgba(255,255,255,0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 12,
-          fontSize: 12,
-          color: '#8b92a9',
-          textAlign: 'center',
-        }}
-      >
-        Photo unavailable
-      </div>
-    );
+  if (!src) {
+    return null;
   }
 
   return (
@@ -55,7 +43,7 @@ function CompletionPhotoThumb({ photo, index }: { photo: string; index: number }
       <img
         src={src}
         alt={`Completion photo ${index + 1}`}
-        onError={() => setFailed(true)}
+        onError={() => onUnavailable(photo)}
         style={{
           width: '100%',
           height: 120,
@@ -65,6 +53,63 @@ function CompletionPhotoThumb({ photo, index }: { photo: string; index: number }
         }}
       />
     </a>
+  );
+}
+
+function CompletionPhotosGallery({ photos }: { photos: string[] }) {
+  const [visible, setVisible] = useState(() => getDisplayCompletionPhotos(photos));
+
+  useEffect(() => {
+    setVisible(getDisplayCompletionPhotos(photos));
+  }, [photos]);
+
+  const handleUnavailable = (photo: string) => {
+    setVisible((prev) => prev.filter((p) => p !== photo));
+  };
+
+  if (visible.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      style={{
+        background: '#1a1d27',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: 16,
+        padding: 24,
+      }}
+    >
+      <h3
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: '#e2e5f0',
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <ImageIcon size={16} color="#6366f1" /> Completion Photos
+      </h3>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+          gap: 12,
+        }}
+      >
+        {visible.map((photo, i) => (
+          <CompletionPhotoThumb
+            key={`${photo}-${i}`}
+            photo={photo}
+            index={i}
+            onUnavailable={handleUnavailable}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -291,21 +336,7 @@ export function JobDetailClient({ initialJob }: JobDetailClientProps) {
               </a>
             </div>
 
-            {job.completionPhotos.length > 0 && (
-              <div style={{
-                background: '#1a1d27', border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: 16, padding: 24,
-              }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, color: '#e2e5f0', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <ImageIcon size={16} color="#6366f1" /> Completion Photos
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-                  {job.completionPhotos.map((photo, i) => (
-                    <CompletionPhotoThumb key={`${photo}-${i}`} photo={photo} index={i} />
-                  ))}
-                </div>
-              </div>
-            )}
+            <CompletionPhotosGallery photos={job.completionPhotos} />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
